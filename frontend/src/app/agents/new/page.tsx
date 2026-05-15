@@ -88,7 +88,7 @@ const STEPS = ['Claw & Identity', 'Connectors & Actions', 'Governance', 'Schedul
 // ─── Step 1: Claw & Identity ─────────────────────────────────────────────────
 
 function Step1({ form, set }: { form: any; set: (k: string, v: any) => void }) {
-  const categories = [...new Set(CLAWS.map(c => c.category))];
+  const categories = Array.from(new Set(CLAWS.map(c => c.category)));
   const selected = CLAWS.find(c => c.value === form.claw);
 
   return (

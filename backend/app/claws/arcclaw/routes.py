@@ -430,6 +430,19 @@ async def agent_chat(
     )
 
     # ── Step 4: Log governance event for anything sensitive ───────────────────
+    # Compute PII-based risk floor before logging (used in the governance event below)
+    pii_risk = 0
+    for _f in scan.findings:
+        ptype = _f.get("pattern", "").lower()
+        if any(x in ptype for x in ["ssn", "credit card", "private key", "aws key", "bearer token"]):
+            pii_risk = max(pii_risk, 80)
+        elif any(x in ptype for x in ["api key", "password", "secret", "connection string"]):
+            pii_risk = max(pii_risk, 65)
+        elif any(x in ptype for x in ["email", "base64"]):
+            pii_risk = max(pii_risk, 35)
+        else:
+            pii_risk = max(pii_risk, 25)
+
     if is_sensitive or hard_blocked:
         try:
             outcome = AIEventOutcome.BLOCKED if hard_blocked else AIEventOutcome.REDACTED
@@ -489,18 +502,6 @@ async def agent_chat(
             clean_messages.append({"role": m.role, "content": m.content})
 
     # ── Step 7: Build governance metadata to return to frontend ──────────────
-    # Compute PII-based risk floor (Trust Fabric + AGT may return 0 for clean PII)
-    pii_risk = 0
-    for f in scan.findings:
-        ptype = f.get("pattern", "").lower()
-        if any(x in ptype for x in ["ssn", "credit card", "private key", "aws key", "bearer token"]):
-            pii_risk = max(pii_risk, 80)
-        elif any(x in ptype for x in ["api key", "password", "secret", "connection string"]):
-            pii_risk = max(pii_risk, 65)
-        elif any(x in ptype for x in ["email", "base64"]):
-            pii_risk = max(pii_risk, 35)
-        else:
-            pii_risk = max(pii_risk, 25)
     final_risk = max(decision.risk_score, agt_audit.risk_score, pii_risk)
 
     governance_meta = None

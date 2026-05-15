@@ -1,5 +1,5 @@
 [lint]
-# Only flag genuine errors — ignore style/formatting rules that exist throughout
-# the legacy codebase (E4xx import order, E7xx statement style, F401 unused imports).
-select = ["E9", "F8", "W"]   # syntax errors, undefined names, whitespace
-ignore = []
+# Catch real errors: syntax errors, undefined names, whitespace.
+# F841 (unused local variable) is ignored — pre-existing pattern throughout codebase.
+select = ["E9", "F8", "W"]
+ignore = ["F841"]
