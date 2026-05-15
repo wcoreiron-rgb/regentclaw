@@ -195,7 +195,7 @@ function Step2({ form, set }: { form: any; set: (k: string, v: any) => void }) {
   const connectors: string[] = form.allowed_connectors || [];
   const actions: string[] = form.allowed_actions || [];
   const availableActions = ACTION_OPTIONS[form.claw] || ACTION_OPTIONS.default;
-  const connectorCategories = [...new Set(CONNECTOR_OPTIONS.map(c => c.category))];
+  const connectorCategories = Array.from(new Set(CONNECTOR_OPTIONS.map(c => c.category)));
 
   const toggleConnector = (val: string) => {
     set('allowed_connectors', connectors.includes(val)
