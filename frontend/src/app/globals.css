@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Brand colors ───────────────────────────────────────────────────────── */
+:root {
+  --regent-900: #1e1b4b;
+  --regent-700: #4338ca;
+  --regent-600: #4f46e5;
+  --regent-500: #6366f1;
+
+  /* Dark theme (default) */
+  --rc-bg-base:     #030712;
+  --rc-bg-surface:  #111827;
+  --rc-bg-elevated: #1f2937;
+  --rc-bg-input:    #1f2937;
+  --rc-text-1:      #f3f4f6;
+  --rc-text-2:      #9ca3af;
+  --rc-text-3:      #6b7280;
+  --rc-border:      #1f2937;
+  --rc-border-2:    #374151;
+}
+
+/* ── Light theme variables ───────────────────────────────────────────────── */
+html.light {
+  --rc-bg-base:     #f1f5f9;
+  --rc-bg-surface:  #ffffff;
+  --rc-bg-elevated: #f1f5f9;
+  --rc-bg-input:    #f8fafc;
+  --rc-text-1:      #0f172a;
+  --rc-text-2:      #334155;
+  --rc-text-3:      #64748b;
+  --rc-border:      #e2e8f0;
+  --rc-border-2:    #cbd5e1;
+}
+
+body {
+  background: var(--rc-bg-base);
+  color: var(--rc-text-1);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── Light mode — override all hardcoded dark Tailwind classes ───────────── */
+
+/* Backgrounds */
+html.light .bg-gray-950          { background-color: #f1f5f9 !important; }
+html.light .bg-gray-900          { background-color: #ffffff !important; }
+html.light .bg-gray-800          { background-color: #f1f5f9 !important; }
+html.light .bg-gray-800\/50      { background-color: rgba(241,245,249,0.6) !important; }
+html.light .bg-gray-700          { background-color: #e2e8f0 !important; }
+html.light .bg-gray-700\/50      { background-color: rgba(226,232,240,0.5) !important; }
+
+/* Text */
+html.light .text-white           { color: #0f172a !important; }
+html.light .text-gray-100        { color: #1e293b !important; }
+html.light .text-gray-200        { color: #334155 !important; }
+html.light .text-gray-300        { color: #334155 !important; }
+html.light .text-gray-400        { color: #475569 !important; }
+html.light .text-gray-500        { color: #64748b !important; }
+html.light .text-gray-600        { color: #94a3b8 !important; }
+
+/* Borders */
+html.light .border-gray-800      { border-color: #e2e8f0 !important; }
+html.light .border-gray-700      { border-color: #cbd5e1 !important; }
+html.light .border-gray-600      { border-color: #94a3b8 !important; }
+
+/* Divide (table rows etc.) */
+html.light .divide-gray-800 > *  { border-color: #e2e8f0 !important; }
+html.light .divide-gray-700 > *  { border-color: #cbd5e1 !important; }
+
+/* Hover states */
+html.light .hover\:bg-gray-800:hover   { background-color: #f1f5f9 !important; }
+html.light .hover\:bg-gray-700:hover   { background-color: #e2e8f0 !important; }
+html.light .hover\:border-gray-600:hover { border-color: #94a3b8 !important; }
+html.light .hover\:text-white:hover    { color: #0f172a !important; }
+
+/* Inputs / selects */
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+html.light ::placeholder            { color: #94a3b8 !important; }
+
+/* Ring offset for dark backgrounds used in focus rings */
+html.light .ring-offset-gray-900   { --tw-ring-offset-color: #ffffff; }
+
+/* Focus ring */
+html.light .focus\:border-regent-500:focus { border-color: #6366f1 !important; }
+
+/* ── Light mode — colored text: shift 400 → 700 for readability ─────────── */
+html.light .text-red-400         { color: #b91c1c !important; }
+html.light .text-red-300         { color: #dc2626 !important; }
+html.light .text-red-200         { color: #ef4444 !important; }
+
+html.light .text-orange-400      { color: #c2410c !important; }
+html.light .text-orange-300      { color: #ea580c !important; }
+
+html.light .text-yellow-400      { color: #a16207 !important; }
+html.light .text-yellow-300      { color: #ca8a04 !important; }
+html.light .text-yellow-500      { color: #854d0e !important; }
+
+html.light .text-green-400       { color: #15803d !important; }
+html.light .text-green-300       { color: #16a34a !important; }
+
+html.light .text-blue-400        { color: #1d4ed8 !important; }
+html.light .text-blue-300        { color: #2563eb !important; }
+
+html.light .text-indigo-400      { color: #4338ca !important; }
+html.light .text-indigo-300      { color: #4f46e5 !important; }
+
+html.light .text-purple-400      { color: #7e22ce !important; }
+html.light .text-purple-300      { color: #9333ea !important; }
+
+html.light .text-cyan-400        { color: #0e7490 !important; }
+html.light .text-cyan-300        { color: #0891b2 !important; }
+
+html.light .text-regent-400      { color: #4338ca !important; }
+html.light .text-regent-300      { color: #4f46e5 !important; }
+
+/* ── Light mode — badge backgrounds: dark/30 → light tints ─────────────── */
+/* Red (blocked) */
+html.light .bg-red-900\/40,
+html.light .bg-red-900\/30,
+html.light .bg-red-900\/10       { background-color: #fee2e2 !important; }
+html.light .border-red-800,
+html.light .border-red-700\/50   { border-color: #fca5a5 !important; }
+html.light .text-red-200         { color: #b91c1c !important; }
+
+/* Orange (redacted) */
+html.light .bg-orange-900\/40,
+html.light .bg-orange-900\/30,
+html.light .bg-orange-900\/10    { background-color: #ffedd5 !important; }
+html.light .border-orange-800,
+html.light .border-orange-700\/50 { border-color: #fdba74 !important; }
+html.light .text-orange-300      { color: #c2410c !important; }
+html.light .text-orange-400      { color: #c2410c !important; }
+
+/* Yellow (flagged / arcclaw) */
+html.light .bg-yellow-900\/40,
+html.light .bg-yellow-900\/30,
+html.light .bg-yellow-900\/10    { background-color: #fef9c3 !important; }
+html.light .border-yellow-800,
+html.light .border-yellow-700\/40 { border-color: #fde047 !important; }
+html.light .text-yellow-300      { color: #a16207 !important; }
+
+/* Green (allowed) */
+html.light .bg-green-900\/40,
+html.light .bg-green-900\/30,
+html.light .bg-green-900\/10     { background-color: #dcfce7 !important; }
+html.light .border-green-800,
+html.light .border-green-700     { border-color: #86efac !important; }
+html.light .text-green-300       { color: #15803d !important; }
+html.light .text-green-400       { color: #15803d !important; }
+
+/* Blue (monitor / identityclaw) */
+html.light .bg-blue-900\/40,
+html.light .bg-blue-900\/30,
+html.light .bg-blue-900\/10      { background-color: #dbeafe !important; }
+html.light .border-blue-800,
+html.light .border-blue-700\/40  { border-color: #93c5fd !important; }
+html.light .text-blue-300        { color: #1d4ed8 !important; }
+
+/* Indigo / Regent (trust fabric) */
+html.light .bg-regent-900\/40,
+html.light .bg-regent-900\/30,
+html.light .bg-regent-900\/10,
+html.light .bg-indigo-900\/40,
+html.light .bg-indigo-900\/30,
+html.light .bg-indigo-900\/10    { background-color: #e0e7ff !important; }
+html.light .border-regent-800,
+html.light .border-regent-700\/40,
+html.light .border-indigo-800,
+html.light .border-indigo-700\/40 { border-color: #a5b4fc !important; }
+html.light .text-regent-300      { color: #4338ca !important; }
+
+/* Purple (isolate) */
+html.light .bg-purple-900\/40,
+html.light .bg-purple-900\/30,
+html.light .bg-purple-900\/10    { background-color: #f3e8ff !important; }
+html.light .border-purple-800    { border-color: #d8b4fe !important; }
+html.light .text-purple-300      { color: #7e22ce !important; }
+
+/* Cyan (coreos) */
+html.light .bg-cyan-900\/40,
+html.light .bg-cyan-900\/30,
+html.light .bg-cyan-900\/10      { background-color: #cffafe !important; }
+html.light .border-cyan-800,
+html.light .border-cyan-700\/40  { border-color: #67e8f9 !important; }
+html.light .text-cyan-300        { color: #0e7490 !important; }
+
+/* Amber (connector principle banner) */
+html.light .bg-amber-900\/20     { background-color: #fffbeb !important; }
+html.light .border-amber-700\/40 { border-color: #fcd34d !important; }
+html.light .text-amber-300       { color: #92400e !important; }
+html.light .text-amber-200\/70   { color: #78350f !important; }
+
+/* Gradient risk banner — flatten to a clean indigo tint in light mode */
+html.light .from-regent-900\/80  { --tw-gradient-from: #e0e7ff !important; }
+html.light .to-gray-900          { --tw-gradient-to: #f1f5f9 !important; }
+html.light .border-regent-700\/50 { border-color: #a5b4fc !important; }
+
+/* Code blocks */
+html.light code { background-color: #f1f5f9 !important; color: #1e293b !important; }
+
+/* Indigo stat card icon bg */
+html.light .bg-indigo-900\/30    { background-color: #e0e7ff !important; }
+html.light .text-indigo-400      { color: #4338ca !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--rc-bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--rc-bg-elevated); border-radius: 3px; }

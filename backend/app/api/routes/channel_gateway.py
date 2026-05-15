@@ -1,0 +1,442 @@
+"""
+RegentClaw — Messaging Channel Gateway API
+
+POST /channel-gateway/slack/events          — Slack Events API webhook
+POST /channel-gateway/teams/webhook         — Microsoft Teams outgoing webhook
+POST /channel-gateway/message               — Generic message ingestion (internal/test)
+GET  /channel-gateway/messages              — Browse processed messages
+GET  /channel-gateway/messages/{id}         — Message detail
+GET  /channel-gateway/identities            — Channel identity registry
+POST /channel-gateway/identities            — Register / update a channel identity
+GET  /channel-gateway/configs               — Channel configs
+POST /channel-gateway/configs               — Register a channel
+PATCH /channel-gateway/configs/{id}         — Update a channel config
+GET  /channel-gateway/stats                 — Gateway statistics
+POST /channel-gateway/simulate              — Simulate a message (for testing without a real bot)
+"""
+import hmac
+import hashlib
+import time
+import uuid
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Query
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.channel_gateway import ChannelMessage, ChannelIdentity, ChannelConfig
+from app.services.channel_processor import process_message
+
+router = APIRouter(prefix="/channel-gateway", tags=["channel-gateway"])
+
+
+# ─── helpers ─────────────────────────────────────────────────────────────────
+
+def _msg_out(m: ChannelMessage) -> dict:
+    return {
+        "id":               m.id,
+        "channel_type":     m.channel_type,
+        "channel_id":       m.channel_id,
+        "channel_name":     m.channel_name,
+        "sender_id":        m.sender_id,
+        "sender_name":      m.sender_name,
+        "sender_email":     m.sender_email,
+        "message_text":     m.message_text,
+        "identity_verified": m.identity_verified,
+        "identity_risk":    m.identity_risk,
+        "policy_decision":  m.policy_decision,
+        "policy_flags":     m.policy_flags or [],
+        "detected_intent":  m.detected_intent,
+        "detected_claws":   m.detected_claws or [],
+        "execution_status": m.execution_status,
+        "workflow_run_id":  m.workflow_run_id,
+        "agent_run_id":     m.agent_run_id,
+        "response_text":    m.response_text,
+        "response_sent":    m.response_sent,
+        "created_at":       m.created_at.isoformat() if m.created_at else None,
+        "processed_at":     m.processed_at.isoformat() if m.processed_at else None,
+    }
+
+
+def _identity_out(ci: ChannelIdentity) -> dict:
+    return {
+        "id":               ci.id,
+        "channel_type":     ci.channel_type,
+        "platform_user_id": ci.platform_user_id,
+        "platform_email":   ci.platform_email,
+        "platform_name":    ci.platform_name,
+        "regentclaw_role":  ci.regentclaw_role,
+        "is_trusted":       ci.is_trusted,
+        "trust_score":      ci.trust_score,
+        "allowed_claws":    ci.allowed_claws or [],
+        "denied_claws":     ci.denied_claws or [],
+        "max_autonomy":     ci.max_autonomy,
+        "last_seen":        ci.last_seen.isoformat() if ci.last_seen else None,
+    }
+
+
+def _get_channel_identity(
+    db: Session, channel_type: str, sender_id: str, sender_email: str
+) -> dict | None:
+    ci = (
+        db.query(ChannelIdentity)
+        .filter(
+            ChannelIdentity.channel_type == channel_type,
+            (ChannelIdentity.platform_user_id == sender_id)
+            | (ChannelIdentity.platform_email == sender_email),
+        )
+        .first()
+    )
+    return _identity_out(ci) if ci else None
+
+
+def _persist_message(db: Session, result: dict, channel_name: str = "") -> ChannelMessage:
+    msg = ChannelMessage(
+        id               = result["id"],
+        channel_type     = result["channel_type"],
+        channel_id       = result["channel_id"],
+        channel_name     = channel_name,
+        sender_id        = result["sender_id"],
+        sender_name      = result["sender_name"],
+        sender_email     = result["sender_email"],
+        message_text     = result["message_text"],
+        identity_verified = result["identity_verified"],
+        identity_risk    = result["identity_risk"],
+        policy_decision  = result["policy_decision"],
+        policy_flags     = result["policy_flags"],
+        detected_intent  = result["detected_intent"],
+        detected_claws   = result["detected_claws"],
+        execution_status = result["execution_status"],
+        workflow_run_id  = result.get("workflow_run_id", ""),
+        agent_run_id     = result.get("agent_run_id", ""),
+        response_text    = result["response_text"],
+        processed_at     = datetime.utcnow(),
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+# ─── Slack Events API ────────────────────────────────────────────────────────
+
+@router.post("/slack/events")
+async def slack_events(
+    request: Request,
+    x_slack_signature: Optional[str] = Header(None, alias="x-slack-signature"),
+    x_slack_request_timestamp: Optional[str] = Header(None, alias="x-slack-request-timestamp"),
+    db: Session = Depends(get_db),
+):
+    body_bytes = await request.body()
+    payload    = await request.json()
+
+    # URL verification challenge (Slack sends this when you register the webhook)
+    if payload.get("type") == "url_verification":
+        return {"challenge": payload.get("challenge")}
+
+    # Verify Slack signature (optional in dev — requires signing_secret in config)
+    channel_id = payload.get("event", {}).get("channel", "")
+    config = db.query(ChannelConfig).filter(
+        ChannelConfig.channel_id == channel_id,
+        ChannelConfig.channel_type == "slack",
+    ).first()
+
+    if config and config.signing_secret and x_slack_signature and x_slack_request_timestamp:
+        ts      = x_slack_request_timestamp
+        sig_base = f"v0:{ts}:{body_bytes.decode()}"
+        expected = "v0=" + hmac.new(
+            config.signing_secret.encode(), sig_base.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, x_slack_signature):
+            raise HTTPException(403, "Invalid Slack signature")
+
+    event = payload.get("event", {})
+    if event.get("type") not in ("message", "app_mention"):
+        return {"ok": True}
+
+    # Skip bot messages
+    if event.get("bot_id") or event.get("subtype") == "bot_message":
+        return {"ok": True}
+
+    sender_id    = event.get("user", "")
+    message_text = event.get("text", "").strip()
+    if not message_text:
+        return {"ok": True}
+
+    channel_name = config.channel_name if config else channel_id
+    ci = _get_channel_identity(db, "slack", sender_id, "")
+    result = process_message(
+        message_id   = str(uuid.uuid4()),
+        message_text = message_text,
+        sender_id    = sender_id,
+        sender_email = "",
+        sender_name  = event.get("username", sender_id),
+        channel_type = "slack",
+        channel_id   = channel_id,
+        channel_identity = ci,
+    )
+    _persist_message(db, result, channel_name)
+    return {"ok": True, "response": result["response_text"]}
+
+
+# ─── Microsoft Teams Webhook ─────────────────────────────────────────────────
+
+@router.post("/teams/webhook")
+async def teams_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    payload = await request.json()
+
+    # Teams adaptive card / message format
+    from_obj     = payload.get("from", {})
+    sender_id    = from_obj.get("id", "")
+    sender_email = from_obj.get("email", "")
+    sender_name  = from_obj.get("name", sender_id)
+    message_text = payload.get("text", "").strip()
+    channel_id   = payload.get("channelData", {}).get("channel", {}).get("id", "teams-default")
+    channel_name = payload.get("channelData", {}).get("channel", {}).get("displayName", channel_id)
+
+    if not message_text:
+        return {"type": "message", "text": "No message content received."}
+
+    ci = _get_channel_identity(db, "teams", sender_id, sender_email)
+    result = process_message(
+        message_id   = str(uuid.uuid4()),
+        message_text = message_text,
+        sender_id    = sender_id,
+        sender_email = sender_email,
+        sender_name  = sender_name,
+        channel_type = "teams",
+        channel_id   = channel_id,
+        channel_identity = ci,
+    )
+    _persist_message(db, result, channel_name)
+
+    # Teams expects an Activity response
+    return {
+        "type":    "message",
+        "text":    result["response_text"],
+        "summary": f"RegentClaw: {result['policy_decision']} ({result['execution_status']})",
+    }
+
+
+# ─── Generic / internal message endpoint ─────────────────────────────────────
+
+@router.post("/message")
+def ingest_message(body: dict, db: Session = Depends(get_db)):
+    """
+    Internal / test endpoint. Body: { channel_type, channel_id, sender_id,
+    sender_email, sender_name, message_text, channel_name? }
+    """
+    required = ("channel_type", "channel_id", "sender_id", "message_text")
+    for f in required:
+        if f not in body:
+            raise HTTPException(400, f"Missing field: {f}")
+
+    ci = _get_channel_identity(
+        db, body["channel_type"], body["sender_id"], body.get("sender_email", "")
+    )
+    result = process_message(
+        message_id   = str(uuid.uuid4()),
+        message_text = body["message_text"],
+        sender_id    = body["sender_id"],
+        sender_email = body.get("sender_email", ""),
+        sender_name  = body.get("sender_name", body["sender_id"]),
+        channel_type = body["channel_type"],
+        channel_id   = body["channel_id"],
+        channel_identity = ci,
+    )
+    msg = _persist_message(db, result, body.get("channel_name", body["channel_id"]))
+    return {**_msg_out(msg), "response": result["response_text"]}
+
+
+# ─── Simulate endpoint (test without a real bot token) ───────────────────────
+
+@router.post("/simulate")
+def simulate_message(body: dict, db: Session = Depends(get_db)):
+    """
+    Simulate a channel message without writing to DB. Returns the full processing result.
+    Body: { channel_type, channel_id, sender_id, sender_email?, sender_name?, message_text }
+    """
+    required = ("channel_type", "channel_id", "sender_id", "message_text")
+    for f in required:
+        if f not in body:
+            raise HTTPException(400, f"Missing field: {f}")
+
+    ci = _get_channel_identity(
+        db, body["channel_type"], body["sender_id"], body.get("sender_email", "")
+    )
+    result = process_message(
+        message_id   = "sim-" + str(uuid.uuid4()),
+        message_text = body["message_text"],
+        sender_id    = body["sender_id"],
+        sender_email = body.get("sender_email", ""),
+        sender_name  = body.get("sender_name", body["sender_id"]),
+        channel_type = body["channel_type"],
+        channel_id   = body["channel_id"],
+        channel_identity = ci,
+    )
+    return result
+
+
+# ─── Messages browse ─────────────────────────────────────────────────────────
+
+@router.get("/messages")
+def list_messages(
+    channel_type:     Optional[str] = Query(None),
+    policy_decision:  Optional[str] = Query(None),
+    execution_status: Optional[str] = Query(None),
+    sender_email:     Optional[str] = Query(None),
+    limit:  int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    q = db.query(ChannelMessage)
+    if channel_type:
+        q = q.filter(ChannelMessage.channel_type == channel_type)
+    if policy_decision:
+        q = q.filter(ChannelMessage.policy_decision == policy_decision)
+    if execution_status:
+        q = q.filter(ChannelMessage.execution_status == execution_status)
+    if sender_email:
+        q = q.filter(ChannelMessage.sender_email == sender_email)
+    total   = q.count()
+    results = q.order_by(ChannelMessage.created_at.desc()).offset(offset).limit(limit).all()
+    return {"total": total, "messages": [_msg_out(m) for m in results]}
+
+
+@router.get("/messages/{message_id}")
+def get_message(message_id: str, db: Session = Depends(get_db)):
+    m = db.query(ChannelMessage).filter(ChannelMessage.id == message_id).first()
+    if not m:
+        raise HTTPException(404, "Message not found")
+    return _msg_out(m)
+
+
+# ─── Identity registry ───────────────────────────────────────────────────────
+
+@router.get("/identities")
+def list_identities(
+    channel_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    q = db.query(ChannelIdentity)
+    if channel_type:
+        q = q.filter(ChannelIdentity.channel_type == channel_type)
+    return [_identity_out(ci) for ci in q.all()]
+
+
+@router.post("/identities")
+def upsert_identity(body: dict, db: Session = Depends(get_db)):
+    required = ("channel_type", "platform_user_id")
+    for f in required:
+        if f not in body:
+            raise HTTPException(400, f"Missing field: {f}")
+    existing = (
+        db.query(ChannelIdentity)
+        .filter(
+            ChannelIdentity.channel_type == body["channel_type"],
+            ChannelIdentity.platform_user_id == body["platform_user_id"],
+        )
+        .first()
+    )
+    if existing:
+        for k, v in body.items():
+            if hasattr(existing, k):
+                setattr(existing, k, v)
+        existing.last_seen = datetime.utcnow()
+    else:
+        existing = ChannelIdentity(**{k: v for k, v in body.items() if hasattr(ChannelIdentity, k)})
+        db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return _identity_out(existing)
+
+
+# ─── Channel configs ─────────────────────────────────────────────────────────
+
+@router.get("/configs")
+def list_configs(db: Session = Depends(get_db)):
+    configs = db.query(ChannelConfig).all()
+    return [
+        {
+            "id": c.id, "channel_type": c.channel_type, "channel_id": c.channel_id,
+            "channel_name": c.channel_name, "is_enabled": c.is_enabled,
+            "require_approval": c.require_approval, "allowed_roles": c.allowed_roles or [],
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in configs
+    ]
+
+
+@router.post("/configs")
+def create_config(body: dict, db: Session = Depends(get_db)):
+    required = ("channel_type", "channel_id")
+    for f in required:
+        if f not in body:
+            raise HTTPException(400, f"Missing field: {f}")
+    existing = db.query(ChannelConfig).filter(
+        ChannelConfig.channel_id == body["channel_id"]
+    ).first()
+    if existing:
+        raise HTTPException(409, "Channel already configured")
+    config = ChannelConfig(
+        id           = str(uuid.uuid4()),
+        channel_type = body["channel_type"],
+        channel_id   = body["channel_id"],
+        channel_name = body.get("channel_name", body["channel_id"]),
+        webhook_url  = body.get("webhook_url", ""),
+        bot_token    = body.get("bot_token", ""),
+        signing_secret = body.get("signing_secret", ""),
+        is_enabled   = body.get("is_enabled", True),
+        require_approval = body.get("require_approval", True),
+        allowed_roles = body.get("allowed_roles", []),
+    )
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return {"id": config.id, "channel_id": config.channel_id, "message": "Channel registered"}
+
+
+@router.patch("/configs/{config_id}")
+def update_config(config_id: str, body: dict, db: Session = Depends(get_db)):
+    config = db.query(ChannelConfig).filter(ChannelConfig.id == config_id).first()
+    if not config:
+        raise HTTPException(404, "Config not found")
+    for k, v in body.items():
+        if hasattr(config, k) and k not in ("id", "created_at"):
+            setattr(config, k, v)
+    db.commit()
+    return {"id": config.id, "message": "Config updated"}
+
+
+# ─── Stats ───────────────────────────────────────────────────────────────────
+
+@router.get("/stats")
+def gateway_stats(db: Session = Depends(get_db)):
+    total    = db.query(ChannelMessage).count()
+    allowed  = db.query(ChannelMessage).filter(ChannelMessage.policy_decision == "allowed").count()
+    blocked  = db.query(ChannelMessage).filter(ChannelMessage.policy_decision == "blocked").count()
+    pending  = db.query(ChannelMessage).filter(ChannelMessage.policy_decision == "requires_approval").count()
+    verified = db.query(ChannelMessage).filter(ChannelMessage.identity_verified == True).count()
+    slack_msgs = db.query(ChannelMessage).filter(ChannelMessage.channel_type == "slack").count()
+    teams_msgs = db.query(ChannelMessage).filter(ChannelMessage.channel_type == "teams").count()
+    dispatched = db.query(ChannelMessage).filter(ChannelMessage.execution_status == "dispatched").count()
+    identities = db.query(ChannelIdentity).count()
+    trusted    = db.query(ChannelIdentity).filter(ChannelIdentity.is_trusted == True).count()
+    channels   = db.query(ChannelConfig).count()
+    return {
+        "total_messages":   total,
+        "allowed":          allowed,
+        "blocked":          blocked,
+        "pending_approval": pending,
+        "identity_verified": verified,
+        "slack_messages":   slack_msgs,
+        "teams_messages":   teams_msgs,
+        "dispatched_runs":  dispatched,
+        "registered_identities": identities,
+        "trusted_identities":    trusted,
+        "connected_channels":    channels,
+    }
