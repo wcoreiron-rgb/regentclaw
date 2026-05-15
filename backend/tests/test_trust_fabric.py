@@ -147,14 +147,14 @@ class TestWelfordBaseline:
         assert stats["std"] < 1e-9   # no variance when all values are equal
 
     def test_variance_computed_correctly(self):
-        """Two distinct values: 0 and 10, std should be 5."""
+        """Two distinct values: 0 and 10. Sample std = sqrt(M2/(n-1)) = sqrt(50) ≈ 7.07."""
         baseline = {}
         baseline = update_baseline(baseline, "metric", 0.0)
         baseline = update_baseline(baseline, "metric", 10.0)
         stats = baseline["metric"]
         assert stats["count"] == 2
         assert abs(stats["mean"] - 5.0) < 1e-9
-        assert abs(stats["std"] - 5.0) < 1e-9
+        assert abs(stats["std"] - math.sqrt(50)) < 1e-9
 
 
 # ── Policy engine unit tests ───────────────────────────────────────────────────

@@ -1,0 +1,5 @@
+[lint]
+# Only flag genuine errors — ignore style/formatting rules that exist throughout
+# the legacy codebase (E4xx import order, E7xx statement style, F401 unused imports).
+select = ["E9", "F8", "W"]   # syntax errors, undefined names, whitespace
+ignore = []

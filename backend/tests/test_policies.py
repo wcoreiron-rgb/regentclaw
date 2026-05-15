@@ -17,36 +17,34 @@ BASE = "/api/v1/policies"
 async def test_create_policy(client):
     """POST /api/v1/policies should create and return a policy."""
     payload = {
-        "name":         "Test Block Policy",
-        "description":  "Blocks test actions",
-        "effect":       "deny",
-        "priority":     10,
-        "conditions":   {"action": "delete"},
+        "name":           "Test Block Policy",
+        "description":    "Blocks test actions",
+        "action":         "deny",
+        "priority":       10,
+        "condition_json": '{"field": "action", "op": "eq", "value": "delete"}',
     }
     resp = await client.post(BASE, json=payload)
     assert resp.status_code in (200, 201), resp.text
     data = resp.json()
     assert data["name"] == payload["name"]
-    assert data["effect"] == "deny"
+    assert data["action"] == "deny"
     assert "id" in data
 
 
 @pytest.mark.asyncio
 async def test_list_policies(client):
     """GET /api/v1/policies should return a list (possibly empty)."""
-    # Create one first so there's something to list
     await client.post(BASE, json={
-        "name":       "List Test Policy",
-        "effect":     "allow",
-        "priority":   5,
-        "conditions": {},
+        "name":           "List Test Policy",
+        "action":         "allow",
+        "priority":       5,
+        "condition_json": "{}",
     })
     resp = await client.get(BASE)
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert isinstance(data, list)
     assert len(data) >= 1
-    # Each item should have an id and name
     for item in data:
         assert "id" in item
         assert "name" in item
@@ -56,10 +54,10 @@ async def test_list_policies(client):
 async def test_create_policy_roundtrip(client):
     """Creating and then fetching a policy by ID should return matching data."""
     create_resp = await client.post(BASE, json={
-        "name":       "Roundtrip Policy",
-        "effect":     "allow",
-        "priority":   1,
-        "conditions": {"resource": "s3://bucket"},
+        "name":           "Roundtrip Policy",
+        "action":         "allow",
+        "priority":       1,
+        "condition_json": '{"field": "resource", "op": "eq", "value": "s3://bucket"}',
     })
     assert create_resp.status_code in (200, 201)
     created = create_resp.json()
@@ -94,5 +92,4 @@ async def test_policy_evaluation(client):
 
     assert resp.status_code in (200, 201), resp.text
     data = resp.json()
-    # Should return at least a decision field
-    assert "decision" in data or "effect" in data or "result" in data
+    assert "decision" in data or "action" in data or "result" in data
