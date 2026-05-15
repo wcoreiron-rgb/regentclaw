@@ -1,6 +1,16 @@
-# RegentClaw — Zero Trust Security Ecosystem
+<p align="center">
+  <img src="frontend/public/logo.png" alt="RegentClaw" width="120" />
+</p>
 
-> Modular, governed security ecosystem with Zero Trust enforcement across every module, agent, and workflow.
+<h1 align="center">RegentClaw — Zero Trust Security Ecosystem</h1>
+
+<p align="center">Modular, governed security ecosystem with Zero Trust enforcement across every module, agent, and workflow.</p>
+
+<p align="center">
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/">📄 Documentation</a> &nbsp;·&nbsp;
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html">🛠 Technical Docs</a> &nbsp;·&nbsp;
+  <a href="http://localhost:3000">🖥 Dashboard (local)</a>
+</p>
 
 ## Architecture
 
@@ -65,16 +75,34 @@ Key endpoints:
 5. **Every risk is containable** — Isolation, revocation, kill switch
 6. **Every module is governed** — Plug-and-play = plug-and-governed
 
-## Claw Modules
+## Claw Modules (24 total)
 
-| Module | Status | Description |
-|--------|--------|-------------|
-| ArcClaw | ✅ MVP | AI Security — prompt inspection, sensitive pattern detection |
-| IdentityClaw | ✅ MVP | Identity Security — governance of human and non-human identities |
-| CloudClaw | 🔜 Phase 2 | Cloud Security posture |
-| DataClaw | 🔜 Phase 2 | Data Security / DLP |
-| ThreatClaw | 🔜 Phase 3 | Detection & Response |
-| ComplianceClaw | 🔜 Phase 3 | Compliance mapping |
+| Module | Description |
+|--------|-------------|
+| 🤖 ArcClaw | AI & LLM Security — prompt injection detection, AGT integration |
+| 🪪 IdentityClaw | Identity Governance — human & non-human identity risk scoring |
+| ☁️ CloudClaw | Cloud Security Posture — AWS, Azure, GCP |
+| 🌐 ExposureClaw | External Attack Surface Management |
+| 🛡️ EndpointClaw | EDR — CrowdStrike, Defender, SentinelOne |
+| 🔍 ThreatClaw | Threat Intelligence & Detection |
+| 📋 LogClaw | Log Management & SIEM coverage |
+| 🌐 NetClaw | Network Security & segmentation |
+| 🔑 AccessClaw | Access Control & IAM governance |
+| 🗂️ DataClaw | Data Loss Prevention |
+| 📱 AppClaw | Application Security — SAST, SCA |
+| ☁️ SaasClaw | SaaS Security Posture Management |
+| ⚙️ ConfigClaw | Configuration Compliance |
+| ✅ ComplianceClaw | SOC2, PCI DSS, ISO 27001, HIPAA, GDPR, CIS |
+| 🔒 PrivacyClaw | Privacy & GDPR enforcement |
+| 🏢 VendorClaw | Third-Party & Supply Chain Risk |
+| 👤 UserClaw | User Behavior Analytics |
+| 🔎 InsiderClaw | Insider Threat Detection |
+| ⚡ AutomationClaw | Automation & CI/CD Security |
+| 🗺️ AttackPathClaw | Attack Path Analysis |
+| 💻 DevClaw | DevSecOps & Secret Scanning |
+| 🧠 IntelClaw | Threat Intelligence Feeds |
+| 🔄 RecoveryClaw | Incident Recovery & Runbooks |
+| 🔌 CustomClaw | User-defined REST API integrations |
 
 ## Tech Stack
 
