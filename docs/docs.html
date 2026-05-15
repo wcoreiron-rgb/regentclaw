@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RegentClaw — Documentation</title>
+  <meta name="description" content="Technical documentation for the RegentClaw zero-trust security platform." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #111111;
+      --surface2:  #1a1a1a;
+      --border:    #2a2a2a;
+      --blue:      #3b82f6;
+      --blue-dim:  #1d4ed8;
+      --purple:    #8b5cf6;
+      --text:      #f4f4f5;
+      --text2:     #a1a1aa;
+      --text3:     #71717a;
+      --sidebar-w: 272px;
+      --radius:    6px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      line-height: 1.6;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'Fira Code', 'Cascadia Code', 'SF Mono', Menlo, monospace;
+      font-size: 0.82em;
+      color: #e2e8f0;
+    }
+
+    pre {
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      font-family: 'Fira Code', 'Cascadia Code', 'SF Mono', Menlo, monospace;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      margin: 1rem 0;
+    }
+    pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    .c-comment { color: #6b7280; }
+    .c-cmd     { color: #34d399; }
+    .c-str     { color: #fbbf24; }
+    .c-kw      { color: #a78bfa; }
+    .c-num     { color: #fb923c; }
+    .c-key     { color: #60a5fa; }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      height: 56px;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      gap: 1.5rem;
+    }
+    .topbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .topbar-logo .logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .topbar-sep { color: var(--border); }
+    .topbar-title { color: var(--text2); font-size: 0.9rem; }
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .topbar-right a {
+      color: var(--text2);
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .topbar-right a:hover { color: var(--text); }
+    .topbar-github {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      font-size: 0.8rem !important;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      margin-top: 56px;
+      flex: 1;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      position: fixed;
+      top: 56px;
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .sidebar-section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      padding: 1.25rem 1.25rem 0.4rem;
+    }
+    .sidebar-section-title:first-child { padding-top: 0.25rem; }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 1.25rem;
+      font-size: 0.85rem;
+      color: var(--text2);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.12s, border-color 0.12s, background 0.12s;
+      cursor: pointer;
+    }
+    .sidebar-link:hover {
+      color: var(--text);
+      background: var(--surface2);
+      text-decoration: none;
+    }
+    .sidebar-link.active {
+      color: var(--blue);
+      border-left-color: var(--blue);
+      background: rgba(59,130,246,0.07);
+      font-weight: 500;
+    }
+
+    /* ── CONTENT ── */
+    .content {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-width: 0;
+      padding: 3rem 4rem 5rem;
+      max-width: 860px;
+    }
+
+    /* ── SECTIONS ── */
+    .doc-section { display: none; }
+    .doc-section.active { display: block; }
+
+    .doc-section h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      line-height: 1.2;
+    }
+    .doc-section .lead {
+      font-size: 1.05rem;
+      color: var(--text2);
+      line-height: 1.7;
+      margin-bottom: 2rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-section h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 2.25rem 0 0.75rem;
+      scroll-margin-top: 72px;
+    }
+    .doc-section h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.5rem;
+      color: var(--text);
+    }
+    .doc-section p {
+      color: var(--text2);
+      margin-bottom: 1rem;
+      line-height: 1.75;
+    }
+    .doc-section ul, .doc-section ol {
+      color: var(--text2);
+      padding-left: 1.5rem;
+      margin-bottom: 1rem;
+      line-height: 1.75;
+    }
+    .doc-section li { margin-bottom: 0.3rem; }
+    .doc-section li strong { color: var(--text); }
+
+    /* callout boxes */
+    .callout {
+      border-left: 3px solid var(--blue);
+      background: rgba(59,130,246,0.07);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      font-size: 0.875rem;
+      color: var(--text2);
+      line-height: 1.65;
+    }
+    .callout.warn {
+      border-left-color: #f59e0b;
+      background: rgba(245,158,11,0.07);
+    }
+    .callout.tip {
+      border-left-color: var(--purple);
+      background: rgba(139,92,246,0.07);
+    }
+    .callout strong { color: var(--text); }
+
+    /* tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: 0.85rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    td {
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    /* badges */
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: 0.04em;
+    }
+    .badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+    .badge-purple { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
+    .badge-green { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+    .badge-amber { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+    .badge-gray  { background: rgba(113,113,122,0.15); color: var(--text3); border: 1px solid var(--border); }
+
+    /* step list */
+    .steps { counter-reset: step; list-style: none; padding: 0; }
+    .steps li {
+      counter-increment: step;
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      align-items: flex-start;
+    }
+    .steps li::before {
+      content: counter(step);
+      background: var(--blue);
+      color: #fff;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .steps li > div { flex: 1; }
+    .steps li strong { color: var(--text); display: block; margin-bottom: 0.2rem; }
+
+    /* mode cards */
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+    .mode-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .mode-card:hover { border-color: var(--blue); }
+    .mode-name { font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem; }
+    .mode-desc { font-size: 0.78rem; color: var(--text2); line-height: 1.4; }
+
+    /* endpoint table */
+    .endpoint-row { display: flex; align-items: baseline; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .endpoint-row:last-child { border-bottom: none; }
+    .method { font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; font-family: monospace; flex-shrink: 0; }
+    .method-get  { background: rgba(52,211,153,0.15); color: #34d399; }
+    .method-post { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .method-del  { background: rgba(239,68,68,0.15); color: #f87171; }
+    .endpoint-path { font-family: monospace; font-size: 0.8rem; color: var(--text); }
+    .endpoint-desc { font-size: 0.8rem; color: var(--text2); margin-left: auto; }
+
+    /* responsive */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .content { margin-left: 0; padding: 2rem 1.5rem 4rem; }
+    }
+    @media (max-width: 640px) {
+      .content { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <a href="index.html" class="topbar-logo">
+    <div class="logo-icon">🦀</div>
+    RegentClaw
+  </a>
+  <span class="topbar-sep">/</span>
+  <span class="topbar-title">Documentation</span>
+  <div class="topbar-right">
+    <a href="index.html">Home</a>
+    <a href="https://github.com/your-org/regentclaw" target="_blank" rel="noopener" class="topbar-github">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.08-.74.08-.72.08-.72 1.2.08 1.83 1.23 1.83 1.23 1.06 1.82 2.8 1.3 3.48.99.1-.77.41-1.3.75-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.004 2.04.14 3 .4 2.28-1.55 3.28-1.23 3.28-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 24 12C24 5.37 18.63 0 12 0z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section-title">Getting Started</div>
+    <a class="sidebar-link active" onclick="show('overview')">Overview</a>
+    <a class="sidebar-link" onclick="show('quickstart')">Quick Start</a>
+    <a class="sidebar-link" onclick="show('architecture')">Architecture</a>
+
+    <div class="sidebar-section-title">Trust Fabric</div>
+    <a class="sidebar-link" onclick="show('tf-how')">How It Works</a>
+    <a class="sidebar-link" onclick="show('tf-policy')">Policy Engine</a>
+    <a class="sidebar-link" onclick="show('tf-anomaly')">Anomaly Detection</a>
+    <a class="sidebar-link" onclick="show('tf-modes')">Execution Modes</a>
+
+    <div class="sidebar-section-title">The Claw System</div>
+    <a class="sidebar-link" onclick="show('claws-all')">All 24 Claws</a>
+    <a class="sidebar-link" onclick="show('claws-pattern')">Claw Pattern</a>
+    <a class="sidebar-link" onclick="show('claws-adapters')">Provider Adapters</a>
+
+    <div class="sidebar-section-title">CoreOS</div>
+    <a class="sidebar-link" onclick="show('core-agents')">Agents &amp; Workflows</a>
+    <a class="sidebar-link" onclick="show('core-triggers')">Event Triggers</a>
+    <a class="sidebar-link" onclick="show('core-scheduling')">Scheduling</a>
+    <a class="sidebar-link" onclick="show('core-approvals')">Approvals</a>
+
+    <div class="sidebar-section-title">Integrations</div>
+    <a class="sidebar-link" onclick="show('int-cloud')">Cloud Providers</a>
+    <a class="sidebar-link" onclick="show('int-endpoint')">Endpoint Security</a>
+    <a class="sidebar-link" onclick="show('int-siem')">SIEM &amp; Log Management</a>
+    <a class="sidebar-link" onclick="show('int-identity')">Identity Providers</a>
+
+    <div class="sidebar-section-title">API Reference</div>
+    <a class="sidebar-link" onclick="show('api-auth')">Authentication</a>
+    <a class="sidebar-link" onclick="show('api-endpoints')">Endpoints Overview</a>
+    <a class="sidebar-link" onclick="show('api-findings')">Findings Pipeline</a>
+
+    <div class="sidebar-section-title">Development</div>
+    <a class="sidebar-link" onclick="show('dev-tests')">Running Tests</a>
+    <a class="sidebar-link" onclick="show('dev-cicd')">CI/CD Pipeline</a>
+    <a class="sidebar-link" onclick="show('dev-newclaw')">Adding a New Claw</a>
+    <a class="sidebar-link" onclick="show('dev-migrations')">Alembic Migrations</a>
+
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- ─── OVERVIEW ─── -->
+    <div id="sec-overview" class="doc-section active">
+      <h1>RegentClaw</h1>
+      <p class="lead">A modular zero-trust security ecosystem built to govern every security action — from AI prompt evaluation to cloud posture remediation — through a single, auditable enforcement layer.</p>
+
+      <h2>What is RegentClaw?</h2>
+      <p>RegentClaw is a comprehensive security operations platform organized around the principle that <em>every action must be authorized, every decision must be attributable, and no component is trusted by default.</em></p>
+      <p>The platform is composed of three interconnected layers:</p>
+      <ul>
+        <li><strong>24 Security Claws</strong> — Specialized domain modules covering AI security, cloud posture, identity governance, endpoint detection, compliance, DLP, and more. Each claw is self-contained with its own provider adapters and findings engine.</li>
+        <li><strong>Trust Fabric</strong> — The central zero-trust enforcement layer. Every action passes through a 6-stage pipeline: anomaly detection → policy evaluation → risk scoring → audit log → decision.</li>
+        <li><strong>CoreOS</strong> — The orchestration layer that manages agents, multi-step workflows, event-driven triggers, scheduled jobs, and human approval flows.</li>
+      </ul>
+
+      <h2>Key Design Decisions</h2>
+      <div class="callout">
+        <strong>Zero trust is not a network boundary.</strong> RegentClaw enforces zero trust at the action level — every API call, every remediation, every agent task is individually authorized before execution.
+      </div>
+      <ul>
+        <li><strong>Modular claws</strong> — add, disable, or extend security domains without touching the core.</li>
+        <li><strong>Provider-agnostic</strong> — each claw ships with adapters for multiple providers (e.g., CloudClaw supports AWS, Azure, GCP).</li>
+        <li><strong>Async-first backend</strong> — FastAPI with async SQLAlchemy; long-running scans do not block the event loop.</li>
+        <li><strong>Immutable audit trail</strong> — every Trust Fabric decision is permanently recorded with its full context.</li>
+        <li><strong>Human-in-the-loop</strong> — configurable approval gates mean humans remain in control of high-risk actions.</li>
+      </ul>
+
+      <h2>Platform at a Glance</h2>
+      <table>
+        <thead><tr><th>Component</th><th>Purpose</th><th>Key Tech</th></tr></thead>
+        <tbody>
+          <tr><td>Backend API</td><td>Security data, policy evaluation, orchestration</td><td>FastAPI, SQLAlchemy, PostgreSQL</td></tr>
+          <tr><td>Frontend</td><td>Security dashboards, claw UIs, workflow builder</td><td>Next.js 14, TypeScript, Tailwind</td></tr>
+          <tr><td>Trust Fabric</td><td>Zero-trust enforcement pipeline</td><td>Custom policy engine, Redis</td></tr>
+          <tr><td>CoreOS</td><td>Agent orchestration, scheduling, approvals</td><td>Python workers, event bus</td></tr>
+          <tr><td>CLI</td><td>Administrative tooling</td><td>Python typer</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─── QUICK START ─── -->
+    <div id="sec-quickstart" class="doc-section">
+      <h1>Quick Start</h1>
+      <p class="lead">Get a fully functional RegentClaw instance running locally in under 10 minutes using Docker Compose.</p>
+
+      <h2>Prerequisites</h2>
+      <ul>
+        <li>Docker Desktop 24+ and Docker Compose v2</li>
+        <li>Python 3.12+ (for seed scripts and CLI)</li>
+        <li>Git</li>
+        <li>4 GB RAM minimum (8 GB recommended)</li>
+      </ul>
+
+      <h2>1. Clone and Configure</h2>
+      <pre><span class="c-cmd">git clone</span> <span class="c-str">https://github.com/your-org/regentclaw</span>
+<span class="c-cmd">cd</span> regentclaw
+<span class="c-cmd">cp</span> .env.example .env   <span class="c-comment"># Edit DB credentials and secrets</span></pre>
+
+      <p>Open <code>.env</code> and configure at minimum:</p>
+      <pre><span class="c-key">POSTGRES_USER</span>=regentclaw
+<span class="c-key">POSTGRES_PASSWORD</span>=<span class="c-str">your-secure-password</span>
+<span class="c-key">POSTGRES_DB</span>=regentclaw
+<span class="c-key">SECRET_KEY</span>=<span class="c-str">your-jwt-secret-key</span>
+<span class="c-key">REDIS_URL</span>=<span class="c-str">redis://localhost:6379</span></pre>
+
+      <h2>2. Start Services</h2>
+      <pre><span class="c-cmd">docker compose up -d</span>
+
+<span class="c-comment"># Verify all containers are healthy</span>
+<span class="c-cmd">docker compose ps</span></pre>
+
+      <p>This starts four containers: <code>api</code> (FastAPI on port 8000), <code>frontend</code> (Next.js on port 3000), <code>postgres</code>, and <code>redis</code>.</p>
+
+      <h2>3. Seed the Database</h2>
+      <p>Seed scripts populate RegentClaw with example data for policies, agents, connectors, workflows, and more. Run them once after a fresh install:</p>
+      <pre><span class="c-cmd">cd</span> backend
+
+<span class="c-comment"># Core configuration</span>
+<span class="c-cmd">python</span> seed_policies.py
+<span class="c-cmd">python</span> seed_connectors.py
+<span class="c-cmd">python</span> seed_agents.py
+<span class="c-cmd">python</span> seed_workflows.py
+
+<span class="c-comment"># Memory, profiles, and skill packs</span>
+<span class="c-cmd">python</span> seed_memory.py
+<span class="c-cmd">python</span> seed_profiles.py
+<span class="c-cmd">python</span> seed_skill_packs.py
+
+<span class="c-comment"># Event system</span>
+<span class="c-cmd">python</span> seed_triggers.py
+<span class="c-cmd">python</span> seed_policy_packs.py
+
+<span class="c-comment"># Channel and execution infrastructure</span>
+<span class="c-cmd">python</span> seed_channel_gateway.py
+<span class="c-cmd">python</span> seed_exec_channels.py
+<span class="c-cmd">python</span> seed_exchange.py
+
+<span class="c-comment"># Example orchestration scenarios</span>
+<span class="c-cmd">python</span> seed_example_orchestrations.py</pre>
+
+      <h2>4. Access the Platform</h2>
+      <table>
+        <thead><tr><th>Service</th><th>URL</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend</td><td><code>http://localhost:3000</code></td><td>Main security dashboard</td></tr>
+          <tr><td>API</td><td><code>http://localhost:8000</code></td><td>REST API base</td></tr>
+          <tr><td>API Docs</td><td><code>http://localhost:8000/docs</code></td><td>Interactive Swagger UI</td></tr>
+          <tr><td>API Schema</td><td><code>http://localhost:8000/redoc</code></td><td>ReDoc documentation</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <strong>Default credentials:</strong> After seeding, log in with the default admin user created by the seed scripts. Check your seed script output for the generated credentials, or look for <code>ADMIN_EMAIL</code> / <code>ADMIN_PASSWORD</code> in your <code>.env</code> file.
+      </div>
+
+      <h2>Stopping and Resetting</h2>
+      <pre><span class="c-comment"># Stop services (keep data)</span>
+<span class="c-cmd">docker compose stop</span>
+
+<span class="c-comment"># Full reset — removes all data</span>
+<span class="c-cmd">./reset.sh</span></pre>
+    </div>
+
+    <!-- ─── ARCHITECTURE ─── -->
+    <div id="sec-architecture" class="doc-section">
+      <h1>Architecture</h1>
+      <p class="lead">RegentClaw uses a containerized microservice architecture with a clear separation between the security data layer, trust enforcement, orchestration, and presentation.</p>
+
+      <h2>System Overview</h2>
+      <pre><span class="c-comment">┌─────────────────────────────────────────────────────┐
+│                    Frontend (Next.js 14)              │
+│          Security Dashboards · Claw UIs · Workflows  │
+└──────────────────────┬──────────────────────────────┘
+                       │ REST / WebSocket
+┌──────────────────────▼──────────────────────────────┐
+│                 FastAPI Backend                       │
+│   ┌──────────┐  ┌─────────────┐  ┌───────────────┐  │
+│   │ 24 Claws │  │ Trust Fabric│  │    CoreOS     │  │
+│   │  Routes  │  │  Pipeline   │  │ Agents/Sched. │  │
+│   └────┬─────┘  └──────┬──────┘  └───────┬───────┘  │
+│        └───────────────┼──────────────────┘          │
+│                        │                             │
+│   ┌────────────────────▼───────────────────────┐    │
+│   │          SQLAlchemy 2.0 (async ORM)         │    │
+│   └──────────┬──────────────────┬──────────────┘    │
+└──────────────┼──────────────────┼───────────────────┘
+               │                  │
+    ┌──────────▼──────┐  ┌───────▼────────┐
+    │   PostgreSQL     │  │     Redis      │
+    │  Primary store   │  │ Cache · Pub/Sub│
+    └─────────────────┘  └────────────────┘</span></pre>
+
+      <h2>Backend</h2>
+      <p>The FastAPI backend is the heart of RegentClaw. It exposes a versioned REST API under <code>/api/v1/</code> and organizes routes by claw and platform feature:</p>
+      <ul>
+        <li><strong>Claw routers</strong> — <code>/app/claws/{name}/routes.py</code> — each claw registers its own FastAPI router with consistent endpoints (<code>/stats</code>, <code>/findings</code>, <code>/providers</code>, <code>/scan</code>).</li>
+        <li><strong>Trust Fabric</strong> — <code>/app/trust_fabric/</code> — standalone pipeline that every claw action passes through.</li>
+        <li><strong>CoreOS</strong> — <code>/app/core/</code> — agent execution, workflow DAGs, trigger evaluation, scheduling.</li>
+        <li><strong>Auth</strong> — JWT-based with refresh token rotation; all routes require a valid bearer token.</li>
+      </ul>
+
+      <h2>Database</h2>
+      <p>PostgreSQL is the primary data store. Schema migrations are managed with Alembic. Key schema groups:</p>
+      <ul>
+        <li><strong>Findings tables</strong> — one per claw, normalized to a common findings schema.</li>
+        <li><strong>Policy tables</strong> — policies, policy packs, evaluation results.</li>
+        <li><strong>Audit tables</strong> — immutable Trust Fabric decision log.</li>
+        <li><strong>CoreOS tables</strong> — agents, workflows, triggers, schedules, approvals.</li>
+      </ul>
+
+      <h2>Frontend</h2>
+      <p>Built with Next.js 14 App Router. Each claw has a dedicated page at <code>/src/app/{clawname}/page.tsx</code>. Shared components live in <code>/src/components/</code>. Authentication uses HTTP-only cookies backed by the FastAPI JWT endpoint.</p>
+    </div>
+
+    <!-- ─── TRUST FABRIC: HOW IT WORKS ─── -->
+    <div id="sec-tf-how" class="doc-section">
+      <h1>How the Trust Fabric Works</h1>
+      <p class="lead">The Trust Fabric is the zero-trust enforcement core of RegentClaw. Every security action — whether initiated by a user, an agent, or a scheduled workflow — passes through a mandatory 6-stage pipeline before execution.</p>
+
+      <h2>The Six Stages</h2>
+      <ol class="steps">
+        <li>
+          <div>
+            <strong>Action Request</strong>
+            Any security action enters the Trust Fabric with a context payload: actor identity, action type, target resource, claw origin, and metadata. No action bypasses this entry point.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Anomaly Detection</strong>
+            The behavioral baseline engine evaluates the request against historical patterns for the actor and action type. Unusual timing, frequency, or target patterns raise the initial risk signal before policies run.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Policy Evaluation</strong>
+            The policy engine evaluates all applicable policies — organizational, claw-specific, and compliance-driven — in priority order. Policies can allow, deny, or escalate. Policy pack groupings let you apply compliance frameworks (SOC 2, ISO 27001) as a unit.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Risk Scoring</strong>
+            A composite risk score is computed from anomaly signals, policy outcomes, actor trust level, and resource sensitivity. The score maps to a required authorization level (none, log-only, approval-required, or blocked).
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Audit Log</strong>
+            The complete evaluation context is written to the immutable audit log before a decision is reached. This ensures every decision is reconstructible even if the action is later contested.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Decision</strong>
+            The final decision is one of: <code>ALLOW</code>, <code>DENY</code>, <code>ESCALATE</code> (route to approval flow), or <code>CONTAIN</code> (emergency isolation). The decision is returned to the caller and logged.
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>Performance note:</strong> The full pipeline is designed to complete in under 50ms for typical requests. Redis caching is used for policy lookups and baseline data to minimize database roundtrips.
+      </div>
+    </div>
+
+    <!-- ─── TRUST FABRIC: POLICY ENGINE ─── -->
+    <div id="sec-tf-policy" class="doc-section">
+      <h1>Policy Engine</h1>
+      <p class="lead">RegentClaw's policy engine evaluates structured rules against action context to produce allow/deny/escalate decisions. Policies are stored in PostgreSQL and can be updated without restarting the platform.</p>
+
+      <h2>Policy Structure</h2>
+      <p>Each policy has:</p>
+      <ul>
+        <li><strong>Name and description</strong></li>
+        <li><strong>Priority</strong> — lower number = evaluated first</li>
+        <li><strong>Conditions</strong> — JSON-encoded predicate tree (actor, action, resource, time, risk score)</li>
+        <li><strong>Effect</strong> — <code>ALLOW</code>, <code>DENY</code>, or <code>ESCALATE</code></li>
+        <li><strong>Scope</strong> — global, claw-specific, or per-actor-type</li>
+        <li><strong>Enabled flag</strong> — toggle without deleting</li>
+      </ul>
+
+      <h2>Policy Packs</h2>
+      <p>Policy packs are curated bundles of policies aligned to a compliance framework. Seeded packs include:</p>
+      <table>
+        <thead><tr><th>Pack</th><th>Controls</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>SOC 2 Type II</td><td>CC6, CC7, CC8</td><td>Security and change management controls</td></tr>
+          <tr><td>ISO 27001</td><td>A.9, A.12, A.16</td><td>Access control, operations, incident management</td></tr>
+          <tr><td>NIST CSF</td><td>ID, PR, DE, RS, RC</td><td>Full cybersecurity framework coverage</td></tr>
+          <tr><td>CIS Benchmarks</td><td>L1/L2</td><td>Infrastructure hardening baselines</td></tr>
+          <tr><td>Zero Trust Baseline</td><td>Custom</td><td>RegentClaw's built-in zero-trust policy set</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Creating a Policy</h2>
+      <pre><span class="c-cmd">POST</span> /api/v1/policies/
+Content-Type: application/json
+
+{
+  <span class="c-key">"name"</span>: <span class="c-str">"Deny weekend remediations"</span>,
+  <span class="c-key">"priority"</span>: <span class="c-num">10</span>,
+  <span class="c-key">"effect"</span>: <span class="c-str">"ESCALATE"</span>,
+  <span class="c-key">"conditions"</span>: {
+    <span class="c-key">"action_type"</span>: <span class="c-str">"REMEDIATION"</span>,
+    <span class="c-key">"time_window"</span>: <span class="c-str">"WEEKEND"</span>
+  },
+  <span class="c-key">"scope"</span>: <span class="c-str">"global"</span>,
+  <span class="c-key">"enabled"</span>: <span class="c-kw">true</span>
+}</pre>
+    </div>
+
+    <!-- ─── TRUST FABRIC: ANOMALY DETECTION ─── -->
+    <div id="sec-tf-anomaly" class="doc-section">
+      <h1>Anomaly Detection</h1>
+      <p class="lead">RegentClaw's behavioral anomaly detection engine runs before policy evaluation, raising risk signals for unusual patterns that policies alone may not catch.</p>
+
+      <h2>How Baselines Work</h2>
+      <p>For each actor (user, agent, service account) and each action type, the engine maintains rolling behavioral baselines stored in Redis:</p>
+      <ul>
+        <li><strong>Frequency baseline</strong> — typical rate of a given action per hour/day</li>
+        <li><strong>Temporal baseline</strong> — time-of-day and day-of-week patterns</li>
+        <li><strong>Target baseline</strong> — which resources the actor typically acts on</li>
+        <li><strong>Volume baseline</strong> — typical number of resources affected per action</li>
+      </ul>
+      <p>Deviations beyond configurable thresholds increment the risk score passed to the policy engine.</p>
+
+      <h2>Anomaly Signals</h2>
+      <table>
+        <thead><tr><th>Signal</th><th>Description</th><th>Risk Delta</th></tr></thead>
+        <tbody>
+          <tr><td>Off-hours activity</td><td>Action outside actor's normal active window</td><td>+10–25</td></tr>
+          <tr><td>Frequency spike</td><td>Action rate 3x+ above baseline</td><td>+20–40</td></tr>
+          <tr><td>Novel target</td><td>Resource not previously accessed by this actor</td><td>+15–30</td></tr>
+          <tr><td>Bulk operation</td><td>Volume 5x+ above actor's typical batch size</td><td>+25–50</td></tr>
+          <tr><td>Cross-claw correlation</td><td>Similar anomalies across multiple claws simultaneously</td><td>+30–60</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>Bootstrap period:</strong> New actors have no baseline. During the first 7 days, the engine operates in learn-only mode — anomaly signals are recorded but do not increment risk scores.
+      </div>
+    </div>
+
+    <!-- ─── TRUST FABRIC: EXECUTION MODES ─── -->
+    <div id="sec-tf-modes" class="doc-section">
+      <h1>Execution Modes</h1>
+      <p class="lead">RegentClaw supports five execution modes that control how the Trust Fabric responds to a given action. Modes can be set globally, per claw, or per workflow step.</p>
+
+      <div class="mode-grid">
+        <div class="mode-card">
+          <div class="mode-name">🔭 MONITOR</div>
+          <div class="mode-desc">Observe and log only. No actions are taken. All findings are recorded for review. Ideal for initial rollout.</div>
+        </div>
+        <div class="mode-card">
+          <div class="mode-name">💡 ASSIST</div>
+          <div class="mode-desc">Suggest remediation actions to operators. Humans review and manually approve or reject each suggestion.</div>
+        </div>
+        <div class="mode-card">
+          <div class="mode-name">✋ APPROVAL</div>
+          <div class="mode-desc">Actions are queued pending explicit human sign-off. Configurable approval tiers based on risk score.</div>
+        </div>
+        <div class="mode-card">
+          <div class="mode-name">⚡ AUTONOMOUS</div>
+          <div class="mode-desc">Auto-execute pre-approved action types below the configured risk threshold. Full audit trail maintained.</div>
+        </div>
+        <div class="mode-card">
+          <div class="mode-name">🚨 EMERGENCY</div>
+          <div class="mode-desc">Containment-only mode. Immediately isolates affected resources. Requires elevated auth to deactivate.</div>
+        </div>
+      </div>
+
+      <h2>Configuring Modes</h2>
+      <p>Modes are configured per claw in the database and overridable via the API:</p>
+      <pre><span class="c-cmd">PATCH</span> /api/v1/claws/cloudclaw/mode
+{
+  <span class="c-key">"mode"</span>: <span class="c-str">"APPROVAL"</span>,
+  <span class="c-key">"risk_threshold"</span>: <span class="c-num">60</span>
+}</pre>
+
+      <p>For emergency activation:</p>
+      <pre><span class="c-cmd">POST</span> /api/v1/trust-fabric/emergency
+{
+  <span class="c-key">"scope"</span>: <span class="c-str">"cloudclaw"</span>,
+  <span class="c-key">"reason"</span>: <span class="c-str">"Active incident — suspected data exfiltration"</span>
+}</pre>
+    </div>
+
+    <!-- ─── ALL 24 CLAWS ─── -->
+    <div id="sec-claws-all" class="doc-section">
+      <h1>All 24 Claws</h1>
+      <p class="lead">Each claw is a self-contained security domain module with standardized endpoints, its own database tables, provider adapters, and frontend page.</p>
+
+      <table>
+        <thead><tr><th>Claw</th><th>Domain</th><th>Phase</th><th>Key Providers</th></tr></thead>
+        <tbody>
+          <tr><td>🤖 ArcClaw</td><td>AI &amp; LLM Security</td><td><span class="badge badge-blue">MVP</span></td><td>Microsoft AGT, OpenAI, Anthropic</td></tr>
+          <tr><td>🪪 IdentityClaw</td><td>Identity Governance &amp; NHI</td><td><span class="badge badge-blue">MVP</span></td><td>Entra ID, Okta, AWS IAM</td></tr>
+          <tr><td>☁️ CloudClaw</td><td>Cloud Security Posture</td><td><span class="badge badge-purple">Phase 2</span></td><td>AWS, Azure, GCP</td></tr>
+          <tr><td>🌐 ExposureClaw</td><td>External Attack Surface</td><td><span class="badge badge-purple">Phase 2</span></td><td>Shodan, Censys, custom</td></tr>
+          <tr><td>🛡️ EndpointClaw</td><td>Endpoint Detection &amp; Response</td><td><span class="badge badge-purple">Phase 2</span></td><td>CrowdStrike, SentinelOne, Defender</td></tr>
+          <tr><td>🔍 ThreatClaw</td><td>Threat Intelligence</td><td><span class="badge badge-purple">Phase 2</span></td><td>VirusTotal, MISP, custom feeds</td></tr>
+          <tr><td>📋 LogClaw</td><td>Log Management &amp; SIEM</td><td><span class="badge badge-purple">Phase 2</span></td><td>Splunk, Elastic, Sentinel</td></tr>
+          <tr><td>🌐 NetClaw</td><td>Network Security</td><td><span class="badge badge-purple">Phase 2</span></td><td>Palo Alto, Fortinet, Cisco</td></tr>
+          <tr><td>🔑 AccessClaw</td><td>Access Control &amp; IAM</td><td><span class="badge badge-purple">Phase 2</span></td><td>Okta, Entra ID, AWS IAM</td></tr>
+          <tr><td>🗂️ DataClaw</td><td>Data Loss Prevention</td><td><span class="badge badge-purple">Phase 2</span></td><td>Purview, Nightfall, Symantec DLP</td></tr>
+          <tr><td>📱 AppClaw</td><td>Application Security</td><td><span class="badge badge-purple">Phase 2</span></td><td>Snyk, Semgrep, Checkmarx</td></tr>
+          <tr><td>☁️ SaasClaw</td><td>SaaS Security Posture</td><td><span class="badge badge-purple">Phase 2</span></td><td>Obsidian, AppOmni, custom</td></tr>
+          <tr><td>⚙️ ConfigClaw</td><td>Configuration Compliance</td><td><span class="badge badge-purple">Phase 2</span></td><td>AWS Config, Azure Policy, Chef InSpec</td></tr>
+          <tr><td>✅ ComplianceClaw</td><td>Compliance Frameworks</td><td><span class="badge badge-purple">Phase 2</span></td><td>Drata, Vanta, custom</td></tr>
+          <tr><td>🔒 PrivacyClaw</td><td>Privacy &amp; GDPR</td><td><span class="badge badge-gray">Phase 3</span></td><td>OneTrust, custom</td></tr>
+          <tr><td>🏢 VendorClaw</td><td>Third-Party Risk</td><td><span class="badge badge-gray">Phase 3</span></td><td>BitSight, SecurityScorecard</td></tr>
+          <tr><td>👤 UserClaw</td><td>User Behavior Analytics</td><td><span class="badge badge-gray">Phase 3</span></td><td>Varonis, Securonix</td></tr>
+          <tr><td>🔎 InsiderClaw</td><td>Insider Threat</td><td><span class="badge badge-gray">Phase 3</span></td><td>Teramind, custom</td></tr>
+          <tr><td>⚡ AutomationClaw</td><td>Automation Security</td><td><span class="badge badge-gray">Phase 3</span></td><td>Custom, GitHub Actions</td></tr>
+          <tr><td>🗺️ AttackPathClaw</td><td>Attack Path Analysis</td><td><span class="badge badge-gray">Phase 3</span></td><td>BloodHound, Orca, custom</td></tr>
+          <tr><td>💻 DevClaw</td><td>DevSecOps &amp; CI/CD</td><td><span class="badge badge-gray">Phase 3</span></td><td>Snyk, Trivy, GitHub Advanced Security</td></tr>
+          <tr><td>🧠 IntelClaw</td><td>Threat Intel Feeds</td><td><span class="badge badge-gray">Phase 3</span></td><td>STIX/TAXII, custom OSINT</td></tr>
+          <tr><td>🔄 RecoveryClaw</td><td>Incident Recovery</td><td><span class="badge badge-gray">Phase 3</span></td><td>PagerDuty, custom runbooks</td></tr>
+          <tr><td>🔌 CustomClaw</td><td>Custom REST Integrations</td><td><span class="badge badge-gray">Phase 3</span></td><td>Any REST API</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─── CLAW PATTERN ─── -->
+    <div id="sec-claws-pattern" class="doc-section">
+      <h1>The Claw Pattern</h1>
+      <p class="lead">All 24 claws follow a consistent implementation pattern. This makes claws predictable to develop, test, and integrate with the Trust Fabric.</p>
+
+      <h2>Directory Structure</h2>
+      <pre>backend/app/claws/
+└── <span class="c-str">cloudclaw</span>/
+    ├── <span class="c-kw">__init__.py</span>
+    ├── <span class="c-kw">routes.py</span>       <span class="c-comment"># FastAPI router + business logic</span>
+    ├── <span class="c-kw">models.py</span>       <span class="c-comment"># SQLAlchemy models</span>
+    ├── <span class="c-kw">schemas.py</span>      <span class="c-comment"># Pydantic request/response schemas</span>
+    └── <span class="c-kw">providers/</span>
+        ├── aws.py
+        ├── azure.py
+        └── gcp.py</pre>
+
+      <h2>Standard Endpoints</h2>
+      <p>Every claw exposes these four endpoints under <code>/api/v1/{clawname}/</code>:</p>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/stats</span>
+        <span class="endpoint-desc">Aggregated statistics for dashboard cards</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/findings</span>
+        <span class="endpoint-desc">Paginated findings list with filters</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/providers</span>
+        <span class="endpoint-desc">Available provider adapters and their status</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-post">POST</span>
+        <span class="endpoint-path">/scan</span>
+        <span class="endpoint-desc">Trigger a new scan (routes through Trust Fabric)</span>
+      </div>
+
+      <h2>Routes File Template</h2>
+      <pre><span class="c-kw">from</span> fastapi <span class="c-kw">import</span> APIRouter, Depends
+<span class="c-kw">from</span> app.trust_fabric <span class="c-kw">import</span> require_authorization
+
+CLAW_NAME = <span class="c-str">"cloudclaw"</span>
+PROVIDER_MAP = {<span class="c-str">"aws"</span>: aws_provider, <span class="c-str">"azure"</span>: azure_provider}
+
+router = APIRouter(prefix=<span class="c-str">f"/api/v1/{CLAW_NAME}"</span>, tags=[CLAW_NAME])
+
+@router.get(<span class="c-str">"/stats"</span>)
+<span class="c-kw">async def</span> get_stats(): ...
+
+@router.get(<span class="c-str">"/findings"</span>)
+<span class="c-kw">async def</span> get_findings(): ...
+
+@router.get(<span class="c-str">"/providers"</span>)
+<span class="c-kw">async def</span> get_providers(): ...
+
+@router.post(<span class="c-str">"/scan"</span>, dependencies=[Depends(require_authorization)])
+<span class="c-kw">async def</span> run_scan(): ...</pre>
+    </div>
+
+    <!-- ─── PROVIDER ADAPTERS ─── -->
+    <div id="sec-claws-adapters" class="doc-section">
+      <h1>Provider Adapters</h1>
+      <p class="lead">Each claw connects to external security tools and cloud services via provider adapters. Adapters normalize provider-specific responses into RegentClaw's standard findings schema.</p>
+
+      <h2>Adapter Interface</h2>
+      <p>All adapters implement a consistent interface:</p>
+      <pre><span class="c-kw">class</span> <span class="c-str">BaseProvider</span>:
+    <span class="c-kw">async def</span> authenticate(self) -> <span class="c-kw">bool</span>: ...
+    <span class="c-kw">async def</span> get_findings(self, **kwargs) -> list[Finding]: ...
+    <span class="c-kw">async def</span> run_scan(self, config: ScanConfig) -> ScanResult: ...
+    <span class="c-kw">async def</span> health_check(self) -> ProviderStatus: ...</pre>
+
+      <h2>Finding Schema</h2>
+      <p>All providers return findings normalized to:</p>
+      <pre>{
+  <span class="c-key">"id"</span>: <span class="c-str">"uuid"</span>,
+  <span class="c-key">"claw"</span>: <span class="c-str">"cloudclaw"</span>,
+  <span class="c-key">"provider"</span>: <span class="c-str">"aws"</span>,
+  <span class="c-key">"severity"</span>: <span class="c-str">"HIGH"</span>,          <span class="c-comment">// CRITICAL | HIGH | MEDIUM | LOW | INFO</span>
+  <span class="c-key">"title"</span>: <span class="c-str">"S3 bucket publicly accessible"</span>,
+  <span class="c-key">"description"</span>: <span class="c-str">"..."</span>,
+  <span class="c-key">"resource_id"</span>: <span class="c-str">"arn:aws:s3:::my-bucket"</span>,
+  <span class="c-key">"resource_type"</span>: <span class="c-str">"S3Bucket"</span>,
+  <span class="c-key">"remediation"</span>: <span class="c-str">"Block public access..."</span>,
+  <span class="c-key">"compliance_tags"</span>: [<span class="c-str">"SOC2-CC6"</span>, <span class="c-str">"CIS-2.1"</span>],
+  <span class="c-key">"first_seen"</span>: <span class="c-str">"2025-01-15T10:30:00Z"</span>,
+  <span class="c-key">"last_seen"</span>: <span class="c-str">"2025-01-20T08:00:00Z"</span>,
+  <span class="c-key">"status"</span>: <span class="c-str">"OPEN"</span>              <span class="c-comment">// OPEN | ACKNOWLEDGED | RESOLVED | SUPPRESSED</span>
+}</pre>
+
+      <h2>Connector Configuration</h2>
+      <p>Provider credentials are stored as connectors in the database (never in code). The <code>seed_connectors.py</code> script creates example connectors. Manage connectors via:</p>
+      <pre><span class="c-cmd">GET</span>    /api/v1/connectors/
+<span class="c-cmd">POST</span>   /api/v1/connectors/
+<span class="c-cmd">PATCH</span>  /api/v1/connectors/{id}
+<span class="c-cmd">DELETE</span> /api/v1/connectors/{id}</pre>
+    </div>
+
+    <!-- ─── COREOS: AGENTS & WORKFLOWS ─── -->
+    <div id="sec-core-agents" class="doc-section">
+      <h1>Agents &amp; Workflows</h1>
+      <p class="lead">CoreOS is RegentClaw's orchestration layer. Agents are autonomous execution units; workflows chain agent actions into governed multi-step processes.</p>
+
+      <h2>Agents</h2>
+      <p>An agent is a named, persistent execution context with:</p>
+      <ul>
+        <li><strong>Identity</strong> — every agent has its own principal for Trust Fabric evaluation</li>
+        <li><strong>Skill packs</strong> — curated sets of allowed actions the agent can perform</li>
+        <li><strong>Memory</strong> — persistent key-value context carried between executions</li>
+        <li><strong>Execution mode</strong> — agents inherit or override the claw's execution mode</li>
+        <li><strong>Profile</strong> — behavioral baseline profile used by anomaly detection</li>
+      </ul>
+      <p>Agents are seeded via <code>seed_agents.py</code> and managed at <code>/api/v1/agents/</code>.</p>
+
+      <h2>Workflows</h2>
+      <p>Workflows are directed acyclic graphs (DAGs) of agent steps. Each step specifies:</p>
+      <ul>
+        <li>Which agent executes it</li>
+        <li>What action to perform (from the agent's skill pack)</li>
+        <li>Input/output data mappings between steps</li>
+        <li>Conditional branching based on step outcomes</li>
+        <li>Retry policy and timeout configuration</li>
+      </ul>
+
+      <h2>Example Workflow: Incident Response</h2>
+      <pre>{
+  <span class="c-key">"name"</span>: <span class="c-str">"Cloud Incident Response"</span>,
+  <span class="c-key">"steps"</span>: [
+    { <span class="c-key">"id"</span>: <span class="c-str">"1"</span>, <span class="c-key">"agent"</span>: <span class="c-str">"detection-agent"</span>, <span class="c-key">"action"</span>: <span class="c-str">"collect_findings"</span> },
+    { <span class="c-key">"id"</span>: <span class="c-str">"2"</span>, <span class="c-key">"agent"</span>: <span class="c-str">"triage-agent"</span>,    <span class="c-key">"action"</span>: <span class="c-str">"risk_score"</span>, <span class="c-key">"depends_on"</span>: [<span class="c-str">"1"</span>] },
+    { <span class="c-key">"id"</span>: <span class="c-str">"3"</span>, <span class="c-key">"agent"</span>: <span class="c-str">"contain-agent"</span>,  <span class="c-key">"action"</span>: <span class="c-str">"isolate_resource"</span>,
+      <span class="c-key">"depends_on"</span>: [<span class="c-str">"2"</span>], <span class="c-key">"mode"</span>: <span class="c-str">"APPROVAL"</span> }
+  ]
+}</pre>
+    </div>
+
+    <!-- ─── COREOS: EVENT TRIGGERS ─── -->
+    <div id="sec-core-triggers" class="doc-section">
+      <h1>Event Triggers</h1>
+      <p class="lead">Event triggers allow RegentClaw to react automatically to security events — findings crossing severity thresholds, policy violations, external webhook payloads, and schedule-based cadences.</p>
+
+      <h2>Trigger Types</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Description</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><code>FINDING</code></td><td>New finding matches criteria</td><td>New CRITICAL finding in CloudClaw</td></tr>
+          <tr><td><code>THRESHOLD</code></td><td>Metric crosses a threshold</td><td>Risk score &gt; 80 for any actor</td></tr>
+          <tr><td><code>POLICY_VIOLATION</code></td><td>Policy DENY decision recorded</td><td>Any DENY in AUTONOMOUS mode</td></tr>
+          <tr><td><code>WEBHOOK</code></td><td>External HTTP event received</td><td>GitHub push to main branch</td></tr>
+          <tr><td><code>SCHEDULE</code></td><td>Cron-based recurring trigger</td><td>Daily cloud posture scan at 02:00</td></tr>
+          <tr><td><code>MANUAL</code></td><td>Operator-initiated</td><td>Incident response initiation</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Trigger Configuration</h2>
+      <pre><span class="c-cmd">POST</span> /api/v1/triggers/
+{
+  <span class="c-key">"name"</span>: <span class="c-str">"Critical finding response"</span>,
+  <span class="c-key">"type"</span>: <span class="c-str">"FINDING"</span>,
+  <span class="c-key">"conditions"</span>: {
+    <span class="c-key">"severity"</span>: <span class="c-str">"CRITICAL"</span>,
+    <span class="c-key">"status"</span>: <span class="c-str">"OPEN"</span>
+  },
+  <span class="c-key">"action"</span>: {
+    <span class="c-key">"type"</span>: <span class="c-str">"START_WORKFLOW"</span>,
+    <span class="c-key">"workflow_id"</span>: <span class="c-str">"incident-response-v2"</span>
+  }
+}</pre>
+    </div>
+
+    <!-- ─── COREOS: SCHEDULING ─── -->
+    <div id="sec-core-scheduling" class="doc-section">
+      <h1>Scheduling</h1>
+      <p class="lead">CoreOS includes a cron-based scheduling engine for recurring security scans, compliance checks, and report generation.</p>
+
+      <h2>Creating a Schedule</h2>
+      <pre><span class="c-cmd">POST</span> /api/v1/schedules/
+{
+  <span class="c-key">"name"</span>: <span class="c-str">"Nightly cloud posture scan"</span>,
+  <span class="c-key">"cron"</span>: <span class="c-str">"0 2 * * *"</span>,
+  <span class="c-key">"timezone"</span>: <span class="c-str">"UTC"</span>,
+  <span class="c-key">"action"</span>: {
+    <span class="c-key">"type"</span>: <span class="c-str">"CLAW_SCAN"</span>,
+    <span class="c-key">"claw"</span>: <span class="c-str">"cloudclaw"</span>,
+    <span class="c-key">"provider"</span>: <span class="c-str">"aws"</span>
+  },
+  <span class="c-key">"enabled"</span>: <span class="c-kw">true</span>
+}</pre>
+
+      <h2>Seeded Schedules</h2>
+      <p>The <code>seed_triggers.py</code> script creates a default schedule set:</p>
+      <ul>
+        <li>Nightly cloud posture scan (02:00 UTC)</li>
+        <li>Hourly identity governance sweep</li>
+        <li>Weekly compliance report generation</li>
+        <li>Daily anomaly baseline refresh</li>
+      </ul>
+
+      <div class="callout">
+        <strong>All scheduled actions pass through the Trust Fabric.</strong> The scheduler is an actor with its own identity and Trust Fabric profile. Emergency mode will suspend all scheduled actions except containment-type tasks.
+      </div>
+    </div>
+
+    <!-- ─── COREOS: APPROVALS ─── -->
+    <div id="sec-core-approvals" class="doc-section">
+      <h1>Approval Flows</h1>
+      <p class="lead">When the Trust Fabric returns an ESCALATE decision — or when a claw step is configured with APPROVAL execution mode — the action enters an approval queue requiring explicit human sign-off.</p>
+
+      <h2>Approval Tiers</h2>
+      <table>
+        <thead><tr><th>Tier</th><th>Risk Score</th><th>Approvers</th><th>Timeout</th></tr></thead>
+        <tbody>
+          <tr><td>T1 — Standard</td><td>40–59</td><td>Any security team member</td><td>24 hours</td></tr>
+          <tr><td>T2 — Elevated</td><td>60–79</td><td>Security team lead</td><td>4 hours</td></tr>
+          <tr><td>T3 — Critical</td><td>80+</td><td>CISO or designated approver</td><td>1 hour</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Approval API</h2>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/api/v1/approvals/</span>
+        <span class="endpoint-desc">List pending approvals (filterable by tier, claw)</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/api/v1/approvals/{id}</span>
+        <span class="endpoint-desc">Approval detail with full Trust Fabric context</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-post">POST</span>
+        <span class="endpoint-path">/api/v1/approvals/{id}/approve</span>
+        <span class="endpoint-desc">Approve the queued action</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-post">POST</span>
+        <span class="endpoint-path">/api/v1/approvals/{id}/reject</span>
+        <span class="endpoint-desc">Reject with required reason</span>
+      </div>
+    </div>
+
+    <!-- ─── INTEGRATIONS: CLOUD ─── -->
+    <div id="sec-int-cloud" class="doc-section">
+      <h1>Cloud Provider Integrations</h1>
+      <p class="lead">CloudClaw and related modules integrate with all major cloud providers for posture management, identity, and logging.</p>
+
+      <h2>AWS</h2>
+      <p>Authentication via IAM Role (recommended) or access key. Required permissions depend on enabled claws:</p>
+      <ul>
+        <li><code>SecurityHub:GetFindings</code> — CloudClaw posture findings</li>
+        <li><code>IAMAccessAnalyzer:ListFindings</code> — IdentityClaw NHI analysis</li>
+        <li><code>CloudTrail:LookupEvents</code> — LogClaw audit ingestion</li>
+        <li><code>Config:DescribeConfigRules</code> — ConfigClaw compliance</li>
+      </ul>
+      <pre><span class="c-comment"># .env</span>
+<span class="c-key">AWS_ACCESS_KEY_ID</span>=<span class="c-str">your-key</span>
+<span class="c-key">AWS_SECRET_ACCESS_KEY</span>=<span class="c-str">your-secret</span>
+<span class="c-key">AWS_DEFAULT_REGION</span>=<span class="c-str">us-east-1</span></pre>
+
+      <h2>Azure</h2>
+      <p>Authentication via Service Principal with Client Secret or Managed Identity:</p>
+      <pre><span class="c-key">AZURE_TENANT_ID</span>=<span class="c-str">your-tenant</span>
+<span class="c-key">AZURE_CLIENT_ID</span>=<span class="c-str">your-client-id</span>
+<span class="c-key">AZURE_CLIENT_SECRET</span>=<span class="c-str">your-secret</span></pre>
+
+      <h2>Google Cloud</h2>
+      <p>Authentication via service account JSON or Application Default Credentials:</p>
+      <pre><span class="c-key">GOOGLE_APPLICATION_CREDENTIALS</span>=<span class="c-str">/path/to/service-account.json</span>
+<span class="c-key">GCP_PROJECT_ID</span>=<span class="c-str">your-project</span></pre>
+    </div>
+
+    <!-- ─── INTEGRATIONS: ENDPOINT ─── -->
+    <div id="sec-int-endpoint" class="doc-section">
+      <h1>Endpoint Security Integrations</h1>
+      <p class="lead">EndpointClaw integrates with leading EDR platforms to pull findings and initiate containment actions.</p>
+
+      <h2>Supported Providers</h2>
+      <table>
+        <thead><tr><th>Provider</th><th>Capabilities</th><th>Auth Method</th></tr></thead>
+        <tbody>
+          <tr><td>CrowdStrike Falcon</td><td>Detections, device management, RTR containment</td><td>OAuth2 client credentials</td></tr>
+          <tr><td>SentinelOne</td><td>Threats, agents, network isolation</td><td>API token</td></tr>
+          <tr><td>Microsoft Defender</td><td>Alerts, devices, investigation packages</td><td>Entra ID app registration</td></tr>
+          <tr><td>Elastic Defend</td><td>Alerts, endpoint actions</td><td>API key</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>Containment actions</strong> (network isolation, process kill) require the claw to be in AUTONOMOUS or EMERGENCY mode and the action to pass Trust Fabric authorization. These are high-risk actions with T3 approval tier by default.
+      </div>
+    </div>
+
+    <!-- ─── INTEGRATIONS: SIEM ─── -->
+    <div id="sec-int-siem" class="doc-section">
+      <h1>SIEM &amp; Log Management</h1>
+      <p class="lead">LogClaw centralizes security telemetry from external SIEM and log management platforms into the RegentClaw findings pipeline.</p>
+
+      <h2>Supported Platforms</h2>
+      <ul>
+        <li><strong>Splunk</strong> — REST API with saved search queries; alerts forwarded via webhook</li>
+        <li><strong>Elastic Security</strong> — ES|QL queries via Elasticsearch API</li>
+        <li><strong>Microsoft Sentinel</strong> — Log Analytics REST API with KQL queries</li>
+        <li><strong>Sumo Logic</strong> — Search job API</li>
+        <li><strong>Custom syslog</strong> — CEF/LEEF ingest via the channel gateway</li>
+      </ul>
+
+      <h2>Log Normalization</h2>
+      <p>Ingested logs are normalized to the RegentClaw finding schema using field-mapping rules stored in the database. The <code>seed_channel_gateway.py</code> and <code>seed_exec_channels.py</code> scripts configure the ingest channels.</p>
+    </div>
+
+    <!-- ─── INTEGRATIONS: IDENTITY ─── -->
+    <div id="sec-int-identity" class="doc-section">
+      <h1>Identity Provider Integrations</h1>
+      <p class="lead">IdentityClaw and AccessClaw integrate with identity providers for user governance, privileged access management, and non-human identity discovery.</p>
+
+      <h2>Supported Providers</h2>
+      <table>
+        <thead><tr><th>Provider</th><th>Capabilities</th></tr></thead>
+        <tbody>
+          <tr><td>Microsoft Entra ID (Azure AD)</td><td>User sync, guest accounts, app registrations, NHI discovery, PIM alerts</td></tr>
+          <tr><td>Okta</td><td>User lifecycle, MFA status, suspicious activity alerts, service accounts</td></tr>
+          <tr><td>AWS IAM</td><td>User keys, roles, unused permissions, IAM Access Analyzer</td></tr>
+          <tr><td>Google Workspace</td><td>User accounts, OAuth grants, admin alerts</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Non-Human Identity (NHI)</h2>
+      <p>IdentityClaw's NHI module discovers and governs service accounts, API keys, OAuth tokens, and machine credentials. NHIs are tracked with:</p>
+      <ul>
+        <li>Owner attribution</li>
+        <li>Last-used timestamps</li>
+        <li>Permission scope analysis</li>
+        <li>Expiry and rotation status</li>
+        <li>Risk score based on permissions × staleness</li>
+      </ul>
+    </div>
+
+    <!-- ─── API: AUTHENTICATION ─── -->
+    <div id="sec-api-auth" class="doc-section">
+      <h1>Authentication</h1>
+      <p class="lead">RegentClaw uses JWT bearer token authentication. Tokens are short-lived (15 minutes) with refresh token rotation for long-lived sessions.</p>
+
+      <h2>Obtaining a Token</h2>
+      <pre><span class="c-cmd">POST</span> /api/v1/auth/login
+Content-Type: application/json
+
+{
+  <span class="c-key">"email"</span>: <span class="c-str">"admin@example.com"</span>,
+  <span class="c-key">"password"</span>: <span class="c-str">"your-password"</span>
+}</pre>
+
+      <p>Response:</p>
+      <pre>{
+  <span class="c-key">"access_token"</span>: <span class="c-str">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span>,
+  <span class="c-key">"refresh_token"</span>: <span class="c-str">"dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."</span>,
+  <span class="c-key">"token_type"</span>: <span class="c-str">"bearer"</span>,
+  <span class="c-key">"expires_in"</span>: <span class="c-num">900</span>
+}</pre>
+
+      <h2>Using the Token</h2>
+      <p>Include the access token in all subsequent requests:</p>
+      <pre><span class="c-cmd">GET</span> /api/v1/cloudclaw/findings
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
+
+      <h2>Refreshing a Token</h2>
+      <pre><span class="c-cmd">POST</span> /api/v1/auth/refresh
+{
+  <span class="c-key">"refresh_token"</span>: <span class="c-str">"dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."</span>
+}</pre>
+
+      <h2>Token Claims</h2>
+      <p>The JWT payload includes:</p>
+      <ul>
+        <li><code>sub</code> — user UUID</li>
+        <li><code>email</code> — user email</li>
+        <li><code>roles</code> — array of assigned roles</li>
+        <li><code>exp</code> — expiry timestamp</li>
+        <li><code>iat</code> — issued-at timestamp</li>
+      </ul>
+      <p>The Trust Fabric uses the <code>sub</code> claim as the actor identity for all policy and anomaly evaluation.</p>
+    </div>
+
+    <!-- ─── API: ENDPOINTS OVERVIEW ─── -->
+    <div id="sec-api-endpoints" class="doc-section">
+      <h1>Endpoints Overview</h1>
+      <p class="lead">All endpoints are under <code>/api/v1/</code>. The interactive Swagger UI is available at <code>http://localhost:8000/docs</code> when running locally.</p>
+
+      <h2>Auth</h2>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/auth/login</span><span class="endpoint-desc">Obtain access and refresh tokens</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/auth/refresh</span><span class="endpoint-desc">Rotate refresh token</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/auth/logout</span><span class="endpoint-desc">Revoke refresh token</span></div>
+
+      <h2>Trust Fabric</h2>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/trust-fabric/evaluate</span><span class="endpoint-desc">Manually evaluate an action through the pipeline</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/trust-fabric/audit-log</span><span class="endpoint-desc">Paginated audit log with filtering</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/trust-fabric/emergency</span><span class="endpoint-desc">Activate emergency containment mode</span></div>
+
+      <h2>Policies</h2>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/policies/</span><span class="endpoint-desc">List all policies</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/policies/</span><span class="endpoint-desc">Create a policy</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/policies/{id}</span><span class="endpoint-desc">Get policy detail</span></div>
+
+      <h2>Claw Endpoints (per claw)</h2>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/{claw}/stats</span><span class="endpoint-desc">Dashboard statistics</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/{claw}/findings</span><span class="endpoint-desc">Findings list (paginated)</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/{claw}/findings/{id}</span><span class="endpoint-desc">Finding detail</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/{claw}/scan</span><span class="endpoint-desc">Trigger scan</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/{claw}/providers</span><span class="endpoint-desc">Provider status</span></div>
+
+      <h2>CoreOS</h2>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/agents/</span><span class="endpoint-desc">List agents</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/workflows/</span><span class="endpoint-desc">List workflows</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/workflows/{id}/run</span><span class="endpoint-desc">Execute a workflow</span></div>
+      <div class="endpoint-row"><span class="method method-get">GET</span><span class="endpoint-path">/approvals/</span><span class="endpoint-desc">Pending approvals</span></div>
+      <div class="endpoint-row"><span class="method method-post">POST</span><span class="endpoint-path">/approvals/{id}/approve</span><span class="endpoint-desc">Approve action</span></div>
+    </div>
+
+    <!-- ─── API: FINDINGS PIPELINE ─── -->
+    <div id="sec-api-findings" class="doc-section">
+      <h1>Findings Pipeline</h1>
+      <p class="lead">When a claw scan completes, findings pass through a normalization and enrichment pipeline before being stored and surfaced to the dashboard.</p>
+
+      <h2>Pipeline Stages</h2>
+      <ol class="steps">
+        <li><div><strong>Raw provider response</strong> — Provider adapter returns provider-specific data.</div></li>
+        <li><div><strong>Normalization</strong> — Adapter maps provider fields to the standard finding schema.</div></li>
+        <li><div><strong>Deduplication</strong> — Findings are matched against existing open findings by resource ID + title hash. Duplicates update <code>last_seen</code> rather than creating new records.</div></li>
+        <li><div><strong>Enrichment</strong> — Compliance tag mapping, asset context lookup, and risk score calculation are applied.</div></li>
+        <li><div><strong>Storage</strong> — Enriched findings are written to the claw's findings table.</div></li>
+        <li><div><strong>Trigger evaluation</strong> — New CRITICAL findings and threshold crossings are evaluated against active triggers.</div></li>
+      </ol>
+
+      <h2>Finding Lifecycle</h2>
+      <pre>OPEN → ACKNOWLEDGED → RESOLVED
+  ↕
+SUPPRESSED  <span class="c-comment">(skip notifications; still logged)</span></pre>
+    </div>
+
+    <!-- ─── DEV: TESTS ─── -->
+    <div id="sec-dev-tests" class="doc-section">
+      <h1>Running Tests</h1>
+      <p class="lead">RegentClaw uses pytest for the backend and Jest for the frontend. A complete test run covers unit tests, integration tests, and API contract tests.</p>
+
+      <h2>Backend Tests</h2>
+      <pre><span class="c-cmd">cd</span> backend
+<span class="c-cmd">pip install</span> -r requirements-test.txt
+
+<span class="c-comment"># Run all tests</span>
+<span class="c-cmd">pytest</span> tests/ -v --tb=short
+
+<span class="c-comment"># Run a specific claw's tests</span>
+<span class="c-cmd">pytest</span> tests/claws/test_cloudclaw.py -v
+
+<span class="c-comment"># Run with coverage</span>
+<span class="c-cmd">pytest</span> tests/ --cov=app --cov-report=term-missing</pre>
+
+      <h2>Frontend Tests</h2>
+      <pre><span class="c-cmd">cd</span> frontend
+<span class="c-cmd">npm install</span>
+<span class="c-cmd">npm run test</span>         <span class="c-comment"># Jest unit tests</span>
+<span class="c-cmd">npm run build</span>        <span class="c-comment"># Type-check + production build</span></pre>
+
+      <h2>Test Database</h2>
+      <p>Integration tests use an isolated PostgreSQL instance configured in <code>tests/conftest.py</code>. Fixtures create and teardown test data per test session. Set <code>TEST_DATABASE_URL</code> in your environment or <code>.env.test</code> to override the default SQLite-in-memory fallback.</p>
+    </div>
+
+    <!-- ─── DEV: CI/CD ─── -->
+    <div id="sec-dev-cicd" class="doc-section">
+      <h1>CI/CD Pipeline</h1>
+      <p class="lead">RegentClaw uses GitHub Actions for continuous integration. The pipeline runs on every push and pull request to <code>main</code>.</p>
+
+      <h2>Workflow File</h2>
+      <p>Located at <code>.github/workflows/ci.yml</code>. The pipeline consists of four parallel jobs:</p>
+
+      <table>
+        <thead><tr><th>Job</th><th>Runner</th><th>Steps</th></tr></thead>
+        <tbody>
+          <tr><td><code>test-backend</code></td><td>ubuntu-latest</td><td>Python setup → pip install → pytest with PostgreSQL service</td></tr>
+          <tr><td><code>lint-backend</code></td><td>ubuntu-latest</td><td>Python setup → ruff check → ruff format --check</td></tr>
+          <tr><td><code>test-frontend</code></td><td>ubuntu-latest</td><td>Node 20 setup → npm ci → npm run build → Jest</td></tr>
+          <tr><td><code>docker-build</code></td><td>ubuntu-latest</td><td>Docker Buildx → build backend + frontend images (no push on PRs)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Branch Protection</h2>
+      <p>All four CI jobs must pass before merging to <code>main</code>. The <code>docker-build</code> job pushes to the container registry only on merges to <code>main</code>, tagged with the commit SHA and <code>latest</code>.</p>
+
+      <h2>Running Locally</h2>
+      <pre><span class="c-comment"># Lint</span>
+<span class="c-cmd">cd</span> backend && <span class="c-cmd">ruff check</span> . && <span class="c-cmd">ruff format</span> --check .
+
+<span class="c-comment"># Type check</span>
+<span class="c-cmd">cd</span> frontend && <span class="c-cmd">npx tsc</span> --noEmit</pre>
+    </div>
+
+    <!-- ─── DEV: NEW CLAW ─── -->
+    <div id="sec-dev-newclaw" class="doc-section">
+      <h1>Adding a New Claw</h1>
+      <p class="lead">Adding a new security domain claw takes 5 steps. The existing claws in <code>/backend/app/claws/</code> are the best reference implementations.</p>
+
+      <ol class="steps">
+        <li>
+          <div>
+            <strong>Create the claw directory</strong>
+            <pre><span class="c-cmd">mkdir</span> -p backend/app/claws/newclaw/providers
+<span class="c-cmd">touch</span> backend/app/claws/newclaw/__init__.py
+<span class="c-cmd">touch</span> backend/app/claws/newclaw/routes.py
+<span class="c-cmd">touch</span> backend/app/claws/newclaw/models.py
+<span class="c-cmd">touch</span> backend/app/claws/newclaw/schemas.py</pre>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Implement <code>routes.py</code></strong>
+            Define <code>CLAW_NAME</code>, <code>PROVIDER_MAP</code>, and the four standard endpoints (<code>get_stats</code>, <code>get_findings</code>, <code>get_providers</code>, <code>run_scan</code>). All mutating operations must use <code>Depends(require_authorization)</code> so they route through the Trust Fabric.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Create SQLAlchemy models</strong>
+            Define a findings table model inheriting from <code>BaseModel</code>. Add an Alembic migration:
+            <pre><span class="c-cmd">alembic revision</span> --autogenerate -m <span class="c-str">"add newclaw findings table"</span>
+<span class="c-cmd">alembic upgrade</span> head</pre>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Register the router in <code>main.py</code></strong>
+            <pre><span class="c-kw">from</span> app.claws.newclaw.routes <span class="c-kw">import</span> router <span class="c-kw">as</span> newclaw_router
+app.include_router(newclaw_router)</pre>
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Add the frontend page</strong>
+            Create <code>/frontend/src/app/newclaw/page.tsx</code> following the pattern of an existing claw page. Register the claw in the sidebar navigation component. The page should fetch from <code>/api/v1/newclaw/stats</code> and <code>/api/v1/newclaw/findings</code>.
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout tip">
+        <strong>Tip:</strong> Copy <code>cloudclaw</code> as a starting point — it has the most complete implementation including provider stubs, full Pydantic schemas, and a working frontend page.
+      </div>
+    </div>
+
+    <!-- ─── DEV: MIGRATIONS ─── -->
+    <div id="sec-dev-migrations" class="doc-section">
+      <h1>Alembic Migrations</h1>
+      <p class="lead">Database schema changes are managed with Alembic. All migrations live in <code>backend/alembic/versions/</code>.</p>
+
+      <h2>Common Commands</h2>
+      <pre><span class="c-cmd">cd</span> backend
+
+<span class="c-comment"># Create a new autogenerated migration</span>
+<span class="c-cmd">alembic revision</span> --autogenerate -m <span class="c-str">"describe your change"</span>
+
+<span class="c-comment"># Apply all pending migrations</span>
+<span class="c-cmd">alembic upgrade</span> head
+
+<span class="c-comment"># Rollback one migration</span>
+<span class="c-cmd">alembic downgrade</span> -1
+
+<span class="c-comment"># View current migration state</span>
+<span class="c-cmd">alembic current</span>
+
+<span class="c-comment"># View migration history</span>
+<span class="c-cmd">alembic history</span> --verbose</pre>
+
+      <h2>Migration Guidelines</h2>
+      <ul>
+        <li>Always review autogenerated migrations before applying — Alembic may miss complex changes.</li>
+        <li>Never modify existing migration files after they have been applied in any environment.</li>
+        <li>Include both <code>upgrade()</code> and <code>downgrade()</code> functions in every migration.</li>
+        <li>For large table changes, add <code>batch_alter_table</code> support for SQLite compatibility in tests.</li>
+        <li>Data migrations (seeding, backfills) go in separate migration files, not in seed scripts.</li>
+      </ul>
+
+      <div class="callout warn">
+        <strong>Production caution:</strong> Always take a PostgreSQL backup before running <code>alembic upgrade head</code> in production. Long-running migrations on large tables should use <code>CONCURRENTLY</code> index builds or batched updates.
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function show(id) {
+    // Hide all sections
+    document.querySelectorAll('.doc-section').forEach(s => s.classList.remove('active'));
+    // Show target
+    const el = document.getElementById('sec-' + id);
+    if (el) el.classList.add('active');
+    // Update sidebar active state
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    // Scroll content to top
+    document.querySelector('.content').scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+</script>
+
+</body>
+</html>
