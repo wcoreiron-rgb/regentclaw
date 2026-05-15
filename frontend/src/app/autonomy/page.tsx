@@ -435,7 +435,7 @@ export default function AutonomyPage() {
                                     ? <RefreshCw className="w-3 h-3 animate-spin" />
                                     : effMeta?.label ?? agent.effective_mode
                                   }
-                                  {downgraded && !isSaving && <AlertTriangle className="w-3 h-3 text-yellow-400" title="Capped by platform ceiling" />}
+                                  {downgraded && !isSaving && <span title="Capped by platform ceiling"><AlertTriangle className="w-3 h-3 text-yellow-400" /></span>}
                                 </span>
                               </td>
                               <td className="py-2.5"><RiskBadge value={agent.risk_level} /></td>

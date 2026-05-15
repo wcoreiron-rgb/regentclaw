@@ -85,7 +85,7 @@ export default function ConnectorHealthPage() {
   }
 
   const all = summary?.connectors ?? [];
-  const categories = ['All', ...new Set(all.map(c => c.category ?? 'Other').filter(Boolean))];
+  const categories = ['All', ...Array.from(new Set(all.map(c => c.category ?? 'Other').filter(Boolean)))];
 
   const filtered = all.filter(c => {
     if (categoryFilter !== 'All' && (c.category ?? 'Other') !== categoryFilter) return false;

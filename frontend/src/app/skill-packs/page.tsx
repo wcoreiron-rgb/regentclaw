@@ -296,7 +296,7 @@ export default function SkillPacksPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const categories = [...new Set(packs.map(p => p.category).filter(Boolean))] as string[];
+  const categories = Array.from(new Set(packs.map(p => p.category).filter(Boolean))) as string[];
 
   const filtered = packs.filter(p => {
     if (filter === 'installed' && !p.is_installed) return false;

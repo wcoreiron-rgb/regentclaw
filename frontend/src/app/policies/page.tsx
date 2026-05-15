@@ -256,12 +256,12 @@ export default function PoliciesPage() {
 
   // Layers present in the DB for the selected category
   const layersInCategory = (cat: string) =>
-    [...new Set(
+    Array.from(new Set(
       policies
         .filter(p => cat === 'ALL' || LAYER_META[getLayer(p.description)]?.category === cat)
         .map(p => getLayer(p.description))
         .filter(l => l !== 'GLOBAL')
-    )].sort((a, b) => {
+    )).sort((a, b) => {
       const pa = (LAYER_META[a]?.category ?? '') + a;
       const pb = (LAYER_META[b]?.category ?? '') + b;
       return pa.localeCompare(pb);
