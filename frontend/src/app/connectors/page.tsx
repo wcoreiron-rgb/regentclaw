@@ -120,7 +120,7 @@ function ConnectorIcon({ type, name, size = 32 }: { type: string; name: string; 
 
   // Initials fallback
   const colors = ['#312e81','#1e3a5f','#14532d','#4a1942','#7c2d12','#1e3a5f','#3b0764'];
-  const hash = [...type].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const hash = Array.from(type).reduce((a, c) => a + c.charCodeAt(0), 0);
   const fallbackBg = colors[hash % colors.length];
 
   return (
