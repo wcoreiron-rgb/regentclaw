@@ -42,10 +42,31 @@ Then open:
 ### First steps after launch
 
 1. Open http://localhost:3000/dashboard
-2. Go to **Policies** → add preset policies (Block Shell Execution, etc.)
-3. Go to **ArcClaw** → submit a test prompt (try including an API key to test detection)
-4. Watch the **Events** and **Audit** log populate
-5. Go to **IdentityClaw** → check identity inventory
+2. Go to **Connectors** → click any connector → enter your own API credentials
+   - Credentials are encrypted at rest (Fernet AES-128) and never stored in plaintext
+   - Each deployment auto-generates its own encryption key in `backend/.secrets/` (gitignored)
+3. Go to **Policies** → add preset policies (Block Shell Execution, etc.)
+4. Go to **ArcClaw** → submit a test prompt (try including an API key to test detection)
+5. Watch the **Events** and **Audit** log populate
+6. Go to **IdentityClaw** → check identity inventory
+
+> **Security note:** Never commit `backend/.secrets/` — it contains your encryption key and stored credentials. This directory is gitignored by default. Each deployer gets their own isolated key.
+
+### Connecting your own tools
+
+Every Claw module supports real integrations. Go to **Connectors** and add credentials for the tools you use:
+
+| Category | Supported integrations |
+|---|---|
+| Cloud | AWS (Security Hub), Azure (Defender), GCP (Security Command Center) |
+| Endpoint | CrowdStrike Falcon, Microsoft Defender for Endpoint, SentinelOne |
+| Identity | Okta, Microsoft Entra ID, AWS IAM |
+| AI/LLM | Anthropic, OpenAI, Azure OpenAI, Ollama (local) |
+| Code | GitHub (secret scanning, code review) |
+| Log/SIEM | Splunk |
+| Custom | Any REST API via CustomClaw |
+
+Without credentials, all modules run on realistic simulated findings so the platform is fully usable for demos and evaluation.
 
 ## API Reference
 

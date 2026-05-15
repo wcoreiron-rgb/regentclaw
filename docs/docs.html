@@ -378,7 +378,7 @@
   <span class="topbar-title">Documentation</span>
   <div class="topbar-right">
     <a href="index.html">Home</a>
-    <a href="https://github.com/your-org/regentclaw" target="_blank" rel="noopener" class="topbar-github">
+    <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="topbar-github">
       <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.08-.74.08-.72.08-.72 1.2.08 1.83 1.23 1.83 1.23 1.06 1.82 2.8 1.3 3.48.99.1-.77.41-1.3.75-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.004 2.04.14 3 .4 2.28-1.55 3.28-1.23 3.28-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 24 12C24 5.37 18.63 0 12 0z"/></svg>
       GitHub
     </a>
@@ -486,10 +486,15 @@
         <li>4 GB RAM minimum (8 GB recommended)</li>
       </ul>
 
+      <div class="callout warning" style="border-color:#f59e0b;background:rgba(245,158,11,0.08);">
+        <strong style="color:#f59e0b;">Security — Read Before You Start</strong><br>
+        RegentClaw stores connector credentials encrypted on <em>your machine</em>. Never commit the <code>backend/.secrets/</code> folder to git — it contains your encryption key. It is gitignored by default. Each deployment generates its own isolated key on first run. Do not share or publish this folder.
+      </div>
+
       <h2>1. Clone and Configure</h2>
-      <pre><span class="c-cmd">git clone</span> <span class="c-str">https://github.com/your-org/regentclaw</span>
+      <pre><span class="c-cmd">git clone</span> <span class="c-str">https://github.com/wcoreiron-rgb/regentclaw</span>
 <span class="c-cmd">cd</span> regentclaw
-<span class="c-cmd">cp</span> .env.example .env   <span class="c-comment"># Edit DB credentials and secrets</span></pre>
+<span class="c-cmd">cp</span> .env.example .env   <span class="c-comment"># Set SECRET_KEY and DB password</span></pre>
 
       <p>Open <code>.env</code> and configure at minimum:</p>
       <pre><span class="c-key">POSTGRES_USER</span>=regentclaw
@@ -546,6 +551,37 @@
 
       <div class="callout tip">
         <strong>Default credentials:</strong> After seeding, log in with the default admin user created by the seed scripts. Check your seed script output for the generated credentials, or look for <code>ADMIN_EMAIL</code> / <code>ADMIN_PASSWORD</code> in your <code>.env</code> file.
+      </div>
+
+      <h2 id="connectors">5. Add Your Own API Credentials</h2>
+      <p>Every Claw module ships with realistic simulated data so the platform works out of the box. To connect your real environment, add credentials via the <strong>Connectors</strong> page in the UI:</p>
+
+      <ol class="steps">
+        <li><div><strong>Open Connectors</strong><br>Go to <code>http://localhost:3000/connectors</code> and find the integration you want to connect.</div></li>
+        <li><div><strong>Click Configure</strong><br>A modal opens asking for your API key, token, or OAuth credentials — whatever that integration requires.</div></li>
+        <li><div><strong>Enter your credentials</strong><br>Credentials are encrypted with Fernet AES-128 before being saved. They are stored only in <code>backend/.secrets/connectors.json</code> on your machine — never in the database, never sent anywhere, never logged.</div></li>
+        <li><div><strong>Test the connection</strong><br>RegentClaw makes a real read-only API call to verify your credentials work. On success, the connector status turns green and the corresponding Claw begins pulling real findings.</div></li>
+      </ol>
+
+      <table>
+        <thead><tr><th>Claw</th><th>Supported integrations</th><th>Credentials needed</th></tr></thead>
+        <tbody>
+          <tr><td>CloudClaw</td><td>AWS, Azure, GCP</td><td>Access key + secret / Service principal / Service account JSON</td></tr>
+          <tr><td>EndpointClaw</td><td>CrowdStrike, Defender, SentinelOne</td><td>Client ID + secret / API token</td></tr>
+          <tr><td>AccessClaw</td><td>Okta, Microsoft Entra ID, AWS IAM</td><td>API token / Client credentials</td></tr>
+          <tr><td>ArcClaw / Copilot</td><td>Anthropic, OpenAI, Azure OpenAI, Ollama</td><td>API key (or local — no key needed for Ollama)</td></tr>
+          <tr><td>DevClaw</td><td>GitHub</td><td>Personal access token (read: security_events, code)</td></tr>
+          <tr><td>LogClaw</td><td>Splunk</td><td>HEC token + host</td></tr>
+          <tr><td>CustomClaw</td><td>Any REST API</td><td>Bearer token, API key header, or none</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <strong>No credentials? No problem.</strong> Every module falls back to simulated findings automatically. You can demo and evaluate the full platform without connecting a single real tool. Add credentials incrementally as you validate each integration.
+      </div>
+
+      <div class="callout warning" style="border-color:#ef4444;background:rgba(239,68,68,0.08);">
+        <strong style="color:#ef4444;">Important:</strong> Use read-only API keys where possible. RegentClaw only reads security findings — it does not need write or admin permissions for discovery integrations. Follow the principle of least privilege when creating service accounts.
       </div>
 
       <h2>Stopping and Resetting</h2>

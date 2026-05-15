@@ -475,7 +475,7 @@
       <li><a href="#claws">Claws</a></li>
       <li><a href="#architecture">Architecture</a></li>
       <li><a href="docs.html">Docs</a></li>
-      <li><a href="https://github.com/your-org/regentclaw" target="_blank" rel="noopener" class="btn-nav">GitHub →</a></li>
+      <li><a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="btn-nav">GitHub →</a></li>
     </ul>
     <div class="nav-hamburger">&#9776;</div>
   </div>
@@ -491,7 +491,7 @@
   <p>24 specialized security modules. One enforcement layer. Every action authorized, monitored, and attributable.</p>
   <div class="hero-ctas">
     <a href="docs.html" class="btn-primary">View Documentation →</a>
-    <a href="https://github.com/your-org/regentclaw" target="_blank" rel="noopener" class="btn-ghost">
+    <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="btn-ghost">
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.08-.74.08-.72.08-.72 1.2.08 1.83 1.23 1.83 1.23 1.06 1.82 2.8 1.3 3.48.99.1-.77.41-1.3.75-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.004 2.04.14 3 .4 2.28-1.55 3.28-1.23 3.28-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 24 12C24 5.37 18.63 0 12 0z"/></svg>
       GitHub
     </a>
@@ -812,26 +812,29 @@
         <span class="section-tag">Quick Start</span>
         <h2 class="section-title">Up and Running in Minutes</h2>
         <p>RegentClaw is fully containerized. A single <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.85em;">docker compose up</code> starts the entire stack — backend API, frontend, PostgreSQL, and Redis.</p>
-        <p>Seed scripts populate the database with example policies, agents, connectors, and workflows so you can explore the platform immediately.</p>
-        <a href="docs.html" class="btn-primary">Read Full Documentation →</a>
+        <p>Fully self-hosted. Your credentials stay on your machine — encrypted at rest, never sent anywhere. Add your own API keys via the Connectors UI and each Claw connects to your real environment.</p>
+        <p style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:0.75rem 1rem;font-size:0.9rem;color:#fca5a5;">
+          <strong style="color:#f87171;">Security:</strong> Never commit <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">backend/.secrets/</code> to git. This folder holds your encryption key and is gitignored by default. Each deployment generates its own isolated key on first run.
+        </p>
+        <a href="docs.html#connectors" class="btn-primary">How to add your credentials →</a>
       </div>
       <div>
         <div class="code-header">
           <span>🐚</span> bash
         </div>
         <pre><span class="c-comment"># Clone and start</span>
-<span class="c-cmd">git clone</span> <span class="c-str">https://github.com/your-org/regentclaw</span>
+<span class="c-cmd">git clone</span> <span class="c-str">https://github.com/wcoreiron-rgb/regentclaw</span>
 <span class="c-cmd">cd</span> regentclaw
-<span class="c-cmd">docker compose up -d</span>
+<span class="c-cmd">docker compose up --build</span>
 
-<span class="c-comment"># Seed the database (run once)</span>
-<span class="c-cmd">python</span> seed_policies.py &amp;&amp; \
-<span class="c-cmd">python</span> seed_agents.py
+<span class="c-comment"># Open the platform</span>
+<span class="c-comment"># Dashboard: http://localhost:3000</span>
+<span class="c-comment"># API Docs:  http://localhost:8000/docs</span>
 
-<span class="c-comment"># Access the platform</span>
-<span class="c-comment"># Frontend:  http://localhost:3000</span>
-<span class="c-comment"># API:       http://localhost:8000</span>
-<span class="c-comment"># API Docs:  http://localhost:8000/docs</span></pre>
+<span class="c-comment"># Add your own credentials</span>
+<span class="c-comment"># → Go to Connectors → click any connector</span>
+<span class="c-comment"># → Enter your API key/token — encrypted at rest</span>
+<span class="c-comment"># → Claw switches from demo data to your real environment</span></pre>
       </div>
     </div>
   </div>
@@ -851,7 +854,7 @@
       <a href="docs.html">Documentation</a>
       <a href="#claws">Security Claws</a>
       <a href="#architecture">Architecture</a>
-      <a href="https://github.com/your-org/regentclaw" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <div class="footer-copy">Built with zero trust. Governed by default.</div>
   </div>
