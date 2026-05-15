@@ -47,11 +47,12 @@ postgres_data/
 *.swp
 *.swo
 
-# Secrets / credentials
+# Secrets / credentials — NEVER commit these
 *.pem
 *.key
 secrets.json
 credentials.json
+backend/.secrets/
 
 # Alembic
 backend/alembic/versions/__pycache__/
