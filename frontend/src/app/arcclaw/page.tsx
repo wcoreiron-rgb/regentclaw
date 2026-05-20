@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Zap, Ban, AlertTriangle, Eye, Send, Shield, Search, Globe, Play,
   Bell, Clock, ChevronDown, ChevronRight, Cpu, Activity, Terminal,
-  CheckCircle, RefreshCw,
+  CheckCircle, RefreshCw, Key,
 } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import RiskBadge from '@/components/RiskBadge';
@@ -501,6 +501,10 @@ export default function ArcClawPage() {
     setStats(s);
     setEvents(e);
     setProviders(p);
+    // Auto-select the first ready provider so the user doesn't start
+    // on an unconfigured one and get an api_key_missing error.
+    const firstReady = (p as any[]).find((pd: any) => pd.ready);
+    if (firstReady) setProvider(firstReady.provider);
   }, []);
 
   // Fetch models whenever provider changes
@@ -599,6 +603,8 @@ export default function ArcClawPage() {
   const selectedProvider   = providers.find(p => p.provider === provider);
   const currentModels      = availableModels[provider] || [];
   const selectedModelMeta  = currentModels.find(m => m.id === selectedModel);
+  // A provider is "ready" if it's ollama (no key needed) or has a configured API key
+  const providerReady      = provider === 'ollama' || (selectedProvider?.ready ?? false);
 
   return (
     <div className="space-y-6">
@@ -788,45 +794,101 @@ export default function ArcClawPage() {
             }}>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              {/* Empty state: quick actions */}
+              {/* Empty state */}
               {agentMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-6 pb-4">
-                  <div className="text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                      style={{ background: "var(--rc-bg-elevated)" }}>
-                      <Shield className="w-6 h-6 text-regent-400" />
-                    </div>
-                    <p className="font-semibold" style={{ color: "var(--rc-text-1)" }}>
-                      Security Copilot
-                    </p>
-                    <p className="text-sm max-w-sm" style={{ color: "var(--rc-text-3)" }}>
-                      Ask anything security-related. I'll use live tools to query CVEs,
-                      MITRE ATT&amp;CK, findings, and more.
-                      {provider !== 'anthropic' && provider !== 'openai' && (
-                        <span className="block mt-1 text-yellow-400">
-                          Tool calling requires Anthropic or OpenAI. Ollama answers from training knowledge only.
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Quick action chips */}
-                  <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
-                    {QUICK_ACTIONS.map(({ label, prompt, icon: Icon }) => (
-                      <button key={label}
-                        onClick={() => sendToAgent(prompt)}
-                        disabled={sending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:border-regent-500 hover:text-regent-300 disabled:opacity-50"
+                  {/* Setup banner — shown when no provider is configured */}
+                  {!providerReady && (
+                    <div className="w-full max-w-lg rounded-xl border p-5 space-y-3"
+                      style={{
+                        background: "rgba(99,102,241,0.06)",
+                        borderColor: "rgba(99,102,241,0.35)",
+                      }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: "rgba(99,102,241,0.15)" }}>
+                          <Key className="w-4 h-4 text-indigo-400" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm" style={{ color: "var(--rc-text-1)" }}>
+                            Add an LLM API key to activate Security Copilot
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: "var(--rc-text-3)" }}>
+                            Select a provider above, then configure its API key.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2 rounded-lg border space-y-0.5"
+                          style={{ borderColor: "rgba(118,185,0,0.3)", background: "rgba(118,185,0,0.05)" }}>
+                          <p className="font-semibold" style={{ color: '#76b900' }}>🆓 NVIDIA NIM — Free</p>
+                          <p style={{ color: "var(--rc-text-3)" }}>80+ frontier models, no cost</p>
+                          <a href="https://build.nvidia.com/models" target="_blank" rel="noreferrer"
+                            className="underline" style={{ color: '#76b900' }}>
+                            build.nvidia.com/models →
+                          </a>
+                        </div>
+                        <div className="p-2 rounded-lg border space-y-0.5"
+                          style={{ borderColor: "rgba(212,162,127,0.3)", background: "rgba(212,162,127,0.05)" }}>
+                          <p className="font-semibold" style={{ color: '#d4a27f' }}>🤖 Anthropic Claude</p>
+                          <p style={{ color: "var(--rc-text-3)" }}>Best tool-calling accuracy</p>
+                          <a href="https://console.anthropic.com" target="_blank" rel="noreferrer"
+                            className="underline" style={{ color: '#d4a27f' }}>
+                            console.anthropic.com →
+                          </a>
+                        </div>
+                      </div>
+                      <a href="/connectors"
+                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium transition-colors"
                         style={{
-                          background: "var(--rc-bg-elevated)",
-                          borderColor: "var(--rc-border-2)",
-                          color: "var(--rc-text-2)",
+                          background: "rgba(99,102,241,0.15)",
+                          color: "var(--rc-accent)",
+                          border: "1px solid rgba(99,102,241,0.35)",
                         }}>
-                        <Icon className="w-3 h-3" />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                        Go to Connector Marketplace →
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Ready state header */}
+                  {providerReady && (
+                    <div className="text-center space-y-2">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+                        style={{ background: "var(--rc-bg-elevated)" }}>
+                        <Shield className="w-6 h-6 text-regent-400" />
+                      </div>
+                      <p className="font-semibold" style={{ color: "var(--rc-text-1)" }}>Security Copilot</p>
+                      <p className="text-sm max-w-sm" style={{ color: "var(--rc-text-3)" }}>
+                        Ask anything security-related. I'll use live tools to query CVEs,
+                        MITRE ATT&amp;CK, findings, and more.
+                        {provider === 'ollama' && (
+                          <span className="block mt-1 text-purple-400">
+                            Ollama answers from training knowledge only — no live tool calling.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Quick action chips — only when provider is ready */}
+                  {providerReady && (
+                    <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
+                      {QUICK_ACTIONS.map(({ label, prompt, icon: Icon }) => (
+                        <button key={label}
+                          onClick={() => sendToAgent(prompt)}
+                          disabled={sending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:border-regent-500 hover:text-regent-300 disabled:opacity-50"
+                          style={{
+                            background: "var(--rc-bg-elevated)",
+                            borderColor: "var(--rc-border-2)",
+                            color: "var(--rc-text-2)",
+                          }}>
+                          <Icon className="w-3 h-3" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -917,8 +979,10 @@ export default function ArcClawPage() {
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder="Ask Security Copilot anything — CVEs, findings, threats, posture…"
-                  disabled={sending}
+                  placeholder={providerReady
+                    ? "Ask Security Copilot anything — CVEs, findings, threats, posture…"
+                    : "Configure an API key above to start chatting…"}
+                  disabled={sending || !providerReady}
                   className="flex-1 rounded-xl px-4 py-2.5 text-sm border focus:outline-none disabled:opacity-50"
                   style={{
                     background: "var(--rc-bg-input)",
@@ -926,7 +990,7 @@ export default function ArcClawPage() {
                     color: "var(--rc-text-1)",
                   }}
                 />
-                <button type="submit" disabled={sending || !input.trim()}
+                <button type="submit" disabled={sending || !input.trim() || !providerReady}
                   className="px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 bg-regent-600 hover:bg-regent-700 text-white">
                   <Send className="w-4 h-4" />
                   {sending ? 'Thinking…' : 'Send'}
