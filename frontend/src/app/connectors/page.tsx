@@ -181,32 +181,43 @@ function ConfigureModal({ connector, onClose, onUpdate }: {
   const [values, setValues]     = useState<Record<string, string>>({});
   const [showPwd, setShowPwd]   = useState<Record<string, boolean>>({});
   const [loading, setLoading]   = useState(true);
+  const [loadErr, setLoadErr]   = useState<string | null>(null);
   const [saving, setSaving]     = useState(false);
+  const [saveErr, setSaveErr]   = useState<string | null>(null);
   const [testing, setTesting]   = useState(false);
   const [testResult, setTestResult]     = useState<any>(null);
   const [policyResult, setPolicyResult] = useState<any>(null);
 
   useEffect(() => {
-    apiFetch<any>(`/connectors/${connector.id}/fields`).then(data => {
-      setFields(data.fields || []);
-      setLoading(false);
-    });
+    setLoading(true);
+    setLoadErr(null);
+    apiFetch<any>(`/connectors/${connector.id}/fields`)
+      .then(data => { setFields(data.fields || []); setLoading(false); })
+      .catch(e  => { setLoadErr(e.message || 'Failed to load fields'); setLoading(false); });
   }, [connector.id]);
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveErr(null);
     try {
       const result = await apiFetch<any>(`/connectors/${connector.id}/configure`, {
         method: 'POST',
         body: JSON.stringify({ credentials: values }),
       });
       setPolicyResult(result);
-      if (result.is_configured) {
+      // Always advance — even if policy blocked, show the result in review step
+      try {
         const updated = await apiFetch<any>(`/connectors/${connector.id}`);
         onUpdate(updated);
-        setStep('review');
-      }
-    } finally { setSaving(false); }
+      } catch { /* non-fatal — connector card update can fail silently */ }
+      setStep('review');
+    } catch (e: any) {
+      // Surface the real error so the user knows what went wrong
+      const detail = e?.data?.detail || e?.message || 'Failed to save credentials';
+      setSaveErr(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTest = async () => {
@@ -215,18 +226,21 @@ function ConfigureModal({ connector, onClose, onUpdate }: {
       const result = await apiFetch<any>(`/connectors/${connector.id}/test`, { method: 'POST' });
       setTestResult(result);
       if (result.success) {
-        const updated = await apiFetch<any>(`/connectors/${connector.id}`);
-        onUpdate(updated);
+        try {
+          const updated = await apiFetch<any>(`/connectors/${connector.id}`);
+          onUpdate(updated);
+        } catch { /* non-fatal */ }
       }
       setStep('done');
     } catch (e: any) {
-      setTestResult({ success: false, message: e.message });
+      setTestResult({ success: false, message: e?.data?.detail || e?.message || 'Test failed' });
       setStep('done');
     } finally { setTesting(false); }
   };
 
   const approvedScopes: string[] = (() => { try { return JSON.parse(connector.approved_scopes || '[]'); } catch { return []; } })();
-  const hasValues = Object.values(values).some(v => v.trim().length > 0);
+  // Allow saving if at least one value is filled, OR if no fields are required (no-auth connectors)
+  const hasValues = !loading && (fields.length === 0 || Object.values(values).some(v => v.trim().length > 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)' }}
@@ -268,32 +282,52 @@ function ConfigureModal({ connector, onClose, onUpdate }: {
         <div className="p-6">
           {step === 'credentials' && (
             <div className="space-y-4">
-              {loading
-                ? <div className="flex items-center gap-2" style={{ color: 'var(--rc-text-3)' }}><Loader className="w-4 h-4 animate-spin" /> Loading fields…</div>
-                : fields.map(field => (
-                    <div key={field.name}>
-                      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--rc-text-2)' }}>{field.label}</label>
-                      <div className="relative">
-                        <input
-                          type={field.type === 'secret' && !showPwd[field.name] ? 'password' : 'text'}
-                          placeholder={field.hint || ''}
-                          value={values[field.name] || ''}
-                          onChange={e => setValues(prev => ({ ...prev, [field.name]: e.target.value }))}
-                          className="w-full px-3 py-2 rounded-lg border text-sm pr-10"
-                          style={{ background: 'var(--rc-bg-elevated)', borderColor: 'var(--rc-border)', color: 'var(--rc-text-1)' }}
-                        />
-                        {field.type === 'secret' && (
-                          <button type="button"
-                            onClick={() => setShowPwd(prev => ({ ...prev, [field.name]: !prev[field.name] }))}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
-                            style={{ color: 'var(--rc-text-2)' }}>
-                            {showPwd[field.name] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-              }
+              {loading && (
+                <div className="flex items-center gap-2" style={{ color: 'var(--rc-text-3)' }}>
+                  <Loader className="w-4 h-4 animate-spin" /> Loading fields…
+                </div>
+              )}
+              {loadErr && (
+                <div className="p-3 rounded-lg border text-sm text-red-400 bg-red-900/20 border-red-800">
+                  ⚠ {loadErr}
+                </div>
+              )}
+              {!loading && !loadErr && fields.length === 0 && (
+                <div className="p-3 rounded-lg border text-sm" style={{ color: 'var(--rc-text-2)', borderColor: 'var(--rc-border)', background: 'var(--rc-bg-elevated)' }}>
+                  No credential fields required for this connector.
+                </div>
+              )}
+              {!loading && fields.map(field => (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--rc-text-2)' }}>
+                    {field.label}
+                    {field.help && <span className="ml-2 font-normal opacity-60">{field.help}</span>}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={field.type === 'secret' && !showPwd[field.name] ? 'password' : 'text'}
+                      placeholder={field.hint || field.placeholder || ''}
+                      value={values[field.name] || ''}
+                      onChange={e => setValues(prev => ({ ...prev, [field.name]: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border text-sm pr-10"
+                      style={{ background: 'var(--rc-bg-elevated)', borderColor: 'var(--rc-border)', color: 'var(--rc-text-1)' }}
+                    />
+                    {field.type === 'secret' && (
+                      <button type="button"
+                        onClick={() => setShowPwd(prev => ({ ...prev, [field.name]: !prev[field.name] }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                        style={{ color: 'var(--rc-text-2)' }}>
+                        {showPwd[field.name] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {saveErr && (
+                <div className="p-3 rounded-lg border text-sm text-red-400 bg-red-900/20 border-red-800">
+                  ⚠ {saveErr}
+                </div>
+              )}
             </div>
           )}
 
