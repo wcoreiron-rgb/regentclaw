@@ -518,6 +518,32 @@ async def agent_chat(
     # ── Step 8: Run the security agent with clean (redacted) messages ─────────
     api_key = await _resolve_llm_key(db, payload.provider)
 
+    # Return a friendly error instead of a 500 when the provider has no key configured
+    if not api_key and payload.provider not in ("ollama",):
+        provider_labels = {
+            "openai": "OpenAI", "anthropic": "Anthropic Claude",
+            "nvidia": "NVIDIA NIM", "azure_openai": "Azure OpenAI",
+        }
+        label = provider_labels.get(payload.provider, payload.provider.title())
+        key_url = {
+            "nvidia": "https://build.nvidia.com/models",
+            "openai": "https://platform.openai.com/api-keys",
+            "anthropic": "https://console.anthropic.com/settings/keys",
+        }.get(payload.provider, "your provider dashboard")
+        return AgentChatResponse(
+            response=(
+                f"⚠️ **{label} API key not configured.**\n\n"
+                f"To use {label}:\n"
+                f"1. Get your API key from {key_url}\n"
+                f"2. Go to **Connectors** → find **{label}** → click **Configure** → paste your key\n\n"
+                f"*Ollama is free and runs locally with no API key needed.*"
+            ),
+            tool_calls=[],
+            steps=0,
+            error="api_key_missing",
+            provider=payload.provider,
+        )
+
     result = await run_security_agent(
         messages=clean_messages,
         provider=payload.provider,

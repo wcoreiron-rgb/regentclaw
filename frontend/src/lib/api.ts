@@ -22,8 +22,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     ...options,
   });
   if (!res.ok) {
+    // Read body once as text, then try to parse as JSON.
+    // Never call both .json() and .text() — the second call throws "body stream already read".
     let data: unknown;
-    try { data = await res.json(); } catch { data = await res.text(); }
+    try {
+      const text = await res.text();
+      try { data = JSON.parse(text); } catch { data = text; }
+    } catch { data = undefined; }
     throw new ApiError(res.status, `API error ${res.status}`, data);
   }
   return res.json();
