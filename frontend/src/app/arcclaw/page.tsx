@@ -850,45 +850,36 @@ export default function ArcClawPage() {
                     </div>
                   )}
 
-                  {/* Ready state header */}
-                  {providerReady && (
-                    <div className="text-center space-y-2">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-                        style={{ background: "var(--rc-bg-elevated)" }}>
-                        <Shield className="w-6 h-6 text-regent-400" />
-                      </div>
-                      <p className="font-semibold" style={{ color: "var(--rc-text-1)" }}>Security Copilot</p>
-                      <p className="text-sm max-w-sm" style={{ color: "var(--rc-text-3)" }}>
-                        Ask anything security-related. I'll use live tools to query CVEs,
-                        MITRE ATT&amp;CK, findings, and more.
-                        {provider === 'ollama' && (
-                          <span className="block mt-1 text-purple-400">
-                            Ollama answers from training knowledge only — no live tool calling.
-                          </span>
-                        )}
-                      </p>
+                  {/* Header */}
+                  <div className="text-center space-y-2">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
+                      style={{ background: "var(--rc-bg-elevated)" }}>
+                      <Shield className="w-6 h-6 text-regent-400" />
                     </div>
-                  )}
+                    <p className="font-semibold" style={{ color: "var(--rc-text-1)" }}>Security Copilot</p>
+                    <p className="text-sm max-w-sm" style={{ color: "var(--rc-text-3)" }}>
+                      Ask anything security-related. I'll use live tools to query CVEs,
+                      MITRE ATT&amp;CK, findings, and more.
+                    </p>
+                  </div>
 
-                  {/* Quick action chips — only when provider is ready */}
-                  {providerReady && (
-                    <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
-                      {QUICK_ACTIONS.map(({ label, prompt, icon: Icon }) => (
-                        <button key={label}
-                          onClick={() => sendToAgent(prompt)}
-                          disabled={sending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:border-regent-500 hover:text-regent-300 disabled:opacity-50"
-                          style={{
-                            background: "var(--rc-bg-elevated)",
-                            borderColor: "var(--rc-border-2)",
-                            color: "var(--rc-text-2)",
-                          }}>
-                          <Icon className="w-3 h-3" />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {/* Quick action chips — always visible */}
+                  <div className="flex flex-wrap justify-center gap-2 max-w-2xl">
+                    {QUICK_ACTIONS.map(({ label, prompt, icon: Icon }) => (
+                      <button key={label}
+                        onClick={() => sendToAgent(prompt)}
+                        disabled={sending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all hover:border-regent-500 hover:text-regent-300 disabled:opacity-50"
+                        style={{
+                          background: "var(--rc-bg-elevated)",
+                          borderColor: "var(--rc-border-2)",
+                          color: "var(--rc-text-2)",
+                        }}>
+                        <Icon className="w-3 h-3" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -936,10 +927,23 @@ export default function ArcClawPage() {
                       {msg.content && (
                         <div className="pl-8 rounded-2xl rounded-tl-sm px-4 py-3 text-sm space-y-1"
                           style={{ background: "var(--rc-bg-elevated)" }}>
-                          {msg.error && msg.error !== "max_steps" ? (
+                          {msg.error && msg.error !== "max_steps" && msg.error !== "api_key_missing" ? (
                             <p className="text-red-400 text-xs mb-2">Error: {msg.error}</p>
                           ) : null}
                           {renderMarkdown(msg.content)}
+                          {/* Inline configure CTA when API key is missing */}
+                          {msg.error === 'api_key_missing' && (
+                            <a href="/connectors"
+                              className="mt-3 flex items-center gap-2 w-fit px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:opacity-80"
+                              style={{
+                                background: "rgba(99,102,241,0.12)",
+                                borderColor: "rgba(99,102,241,0.4)",
+                                color: "var(--rc-accent)",
+                              }}>
+                              <Key className="w-3 h-3" />
+                              Open Connector Marketplace →
+                            </a>
+                          )}
                         </div>
                       )}
 
@@ -979,10 +983,8 @@ export default function ArcClawPage() {
                 <input
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  placeholder={providerReady
-                    ? "Ask Security Copilot anything — CVEs, findings, threats, posture…"
-                    : "Configure an API key above to start chatting…"}
-                  disabled={sending || !providerReady}
+                  placeholder="Ask Security Copilot anything — CVEs, findings, threats, posture…"
+                  disabled={sending}
                   className="flex-1 rounded-xl px-4 py-2.5 text-sm border focus:outline-none disabled:opacity-50"
                   style={{
                     background: "var(--rc-bg-input)",
@@ -990,7 +992,7 @@ export default function ArcClawPage() {
                     color: "var(--rc-text-1)",
                   }}
                 />
-                <button type="submit" disabled={sending || !input.trim() || !providerReady}
+                <button type="submit" disabled={sending || !input.trim()}
                   className="px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 bg-regent-600 hover:bg-regent-700 text-white">
                   <Send className="w-4 h-4" />
                   {sending ? 'Thinking…' : 'Send'}
