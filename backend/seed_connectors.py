@@ -594,6 +594,50 @@ CONNECTORS = [
         "endpoint": "http://host.docker.internal:11434",
         "network_access": True,
     },
+    {
+        "name": "NVIDIA NIM",
+        "connector_type": "nvidia_nim",
+        "category": "AI / LLM",
+        "description": (
+            "NVIDIA NIM — 80+ enterprise-grade AI models via an OpenAI-compatible API. "
+            "Free tier available at build.nvidia.com/models. Includes Llama 3, Mistral, "
+            "Nemotron, and specialised security/code models. Every prompt is inspected "
+            "and policy-checked by ArcClaw before being forwarded to NVIDIA's inference "
+            "endpoints. Get your free API key at: https://build.nvidia.com/models"
+        ),
+        "status": "pending", "risk_level": "low",
+        "requested_scopes": json.dumps(["chat.completions", "models.list"]),
+        "approved_scopes":  json.dumps(["chat.completions", "models.list"]),
+        "endpoint": "https://integrate.api.nvidia.com/v1",
+        "network_access": True,
+        "credential_fields": json.dumps([
+            {"key": "api_key", "label": "NVIDIA API Key", "type": "password",
+             "help": "Get a free key at https://build.nvidia.com/models — click any model → Get API Key"}
+        ]),
+    },
+    {
+        "name": "Azure OpenAI",
+        "connector_type": "azure_openai",
+        "category": "AI / LLM",
+        "description": (
+            "Azure OpenAI Service — GPT-4o, GPT-4 Turbo, and o1 models hosted in your "
+            "Azure subscription. Data stays within your Azure tenant. Supports private "
+            "endpoints for zero-internet-egress deployments. Required for enterprise "
+            "customers with data-residency requirements."
+        ),
+        "status": "pending", "risk_level": "low",
+        "requested_scopes": json.dumps(["chat.completions", "embeddings"]),
+        "approved_scopes":  json.dumps(["chat.completions", "embeddings"]),
+        "endpoint": "https://<your-resource>.openai.azure.com",
+        "network_access": True,
+        "credential_fields": json.dumps([
+            {"key": "api_key",    "label": "Azure OpenAI API Key",    "type": "password"},
+            {"key": "endpoint",   "label": "Azure Endpoint URL",      "type": "text",
+             "help": "e.g. https://my-resource.openai.azure.com"},
+            {"key": "deployment", "label": "Deployment Name",         "type": "text",
+             "help": "e.g. gpt-4o"},
+        ]),
+    },
 
     # ══════════════════════════════════════════════════════════════════
     # DEV & COLLABORATION  (5)
