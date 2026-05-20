@@ -349,7 +349,8 @@ async def get_providers(db: AsyncSession = Depends(get_db)):
     Checks both env vars and the Connector Marketplace credential store."""
     openai_key    = await _resolve_llm_key(db, "openai")
     anthropic_key = await _resolve_llm_key(db, "anthropic")
-    return await available_providers(openai_key=openai_key, anthropic_key=anthropic_key)
+    nvidia_key    = await _resolve_llm_key(db, "nvidia")
+    return await available_providers(openai_key=openai_key, anthropic_key=anthropic_key, nvidia_key=nvidia_key)
 
 
 # ── Security Copilot Agent endpoints ─────────────────────────────────────────
@@ -613,9 +614,28 @@ async def get_agent_models():
     except Exception:
         pass  # Ollama not running or no models
 
+    # NVIDIA NIM — curated selection of the best free-tier models
+    # Full catalogue at https://build.nvidia.com/models (80+ models)
+    NVIDIA_MODELS = [
+        {"id": "nvidia/nemotron-4-340b-instruct",           "name": "Nemotron 340B",        "tag": "NVIDIA Flagship",  "tier": "top"},
+        {"id": "meta/llama-3.1-405b-instruct",              "name": "Llama 3.1 405B",       "tag": "Meta · Largest",   "tier": "top"},
+        {"id": "meta/llama-3.3-70b-instruct",               "name": "Llama 3.3 70B",        "tag": "Meta · Balanced",  "tier": "mid"},
+        {"id": "mistralai/mistral-large-2-instruct",        "name": "Mistral Large 2",       "tag": "Mistral · Top",    "tier": "top"},
+        {"id": "mistralai/mixtral-8x22b-instruct-v0.1",     "name": "Mixtral 8x22B",        "tag": "MoE · Powerful",   "tier": "mid"},
+        {"id": "deepseek-ai/deepseek-r1",                   "name": "DeepSeek R1",          "tag": "Reasoning",        "tier": "reasoning"},
+        {"id": "deepseek-ai/deepseek-v3-0324",              "name": "DeepSeek V3",          "tag": "Latest · Fast",    "tier": "top"},
+        {"id": "minimaxai/minimax-m2",                      "name": "MiniMax M2",           "tag": "Long Context",     "tier": "mid"},
+        {"id": "moonshotai/kimi-k2-instruct",               "name": "Kimi K2",              "tag": "Agentic",          "tier": "mid"},
+        {"id": "zhipuai/glm-4-9b-chat",                    "name": "GLM 4 9B",             "tag": "Lightweight",      "tier": "fast"},
+        {"id": "google/gemma-3-27b-it",                    "name": "Gemma 3 27B",          "tag": "Google · Open",    "tier": "mid"},
+        {"id": "qwen/qwen2.5-72b-instruct",                "name": "Qwen 2.5 72B",         "tag": "Alibaba",          "tier": "mid"},
+        {"id": "microsoft/phi-4",                          "name": "Phi-4",                "tag": "MSFT · Efficient", "tier": "fast"},
+    ]
+
     return {
         "anthropic": ANTHROPIC_MODELS,
         "openai":    OPENAI_MODELS,
+        "nvidia":    NVIDIA_MODELS,
         "ollama":    ollama_models,
     }
 

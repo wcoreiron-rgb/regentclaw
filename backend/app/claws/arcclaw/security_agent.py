@@ -652,6 +652,13 @@ async def run_security_agent(
             agent_messages, api_key, SYSTEM_PROMPT, tool_calls_log, db, max_steps,
             model=model or "gpt-4o",
         )
+    elif provider == "nvidia":
+        # NVIDIA NIM is OpenAI-compatible — reuse OpenAI agent loop with NIM base URL
+        return await _run_openai_agent(
+            agent_messages, api_key, SYSTEM_PROMPT, tool_calls_log, db, max_steps,
+            model=model or "nvidia/nemotron-4-340b-instruct",
+            base_url="https://integrate.api.nvidia.com/v1",
+        )
     else:
         # Ollama — use specified model; tool injection provides live data
         return await _run_simple_agent(agent_messages, provider, api_key, SYSTEM_PROMPT,
@@ -772,7 +779,13 @@ async def _run_openai_agent(
     db,
     max_steps: int,
     model: str = "gpt-4o",
+    base_url: str = "https://api.openai.com/v1",
 ) -> dict:
+    """
+    OpenAI-compatible agent loop.
+    Works with OpenAI, NVIDIA NIM, or any OpenAI-compatible API —
+    just pass a different base_url (e.g. https://integrate.api.nvidia.com/v1).
+    """
     openai_tools = [
         {
             "type": "function",
@@ -798,7 +811,7 @@ async def _run_openai_agent(
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             r = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                f"{base_url.rstrip('/')}/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",

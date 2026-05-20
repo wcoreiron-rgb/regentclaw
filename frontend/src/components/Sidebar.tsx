@@ -10,7 +10,7 @@ import {
   Target, BookOpen, Eye, UserCheck, UserX,
   Bot, GitMerge, Radar, ClipboardCheck, Lock, Handshake,
   GitBranch, Settings, RefreshCcw, Network, CalendarClock, Layers, Workflow, Webhook, Sparkles,
-  MessageSquare, ShoppingBag, PanelLeftClose, PanelLeftOpen,
+  MessageSquare, ShoppingBag, PanelLeftClose, PanelLeftOpen, ShieldAlert,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from '@/components/ThemeProvider';
@@ -47,6 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Orchestrations',   href: '/orchestrations',   icon: Workflow,         tag: 'Workflows' },
       { label: 'Triggers',         href: '/triggers',         icon: Webhook,          tag: 'Reactive' },
       { label: 'Autonomy',         href: '/autonomy',         icon: Shield,           tag: 'Governance' },
+      { label: 'Remediation',      href: '/remediation',      icon: ShieldAlert,      tag: 'Auto-Fix' },
       { label: 'Run History',      href: '/runs',             icon: Activity,         tag: 'Replay' },
       { label: 'Aegis',            href: '/aegis',            icon: Sparkles,         tag: 'Workflow' },
       { label: 'External Agents',  href: '/external-agents',  icon: Globe,            tag: 'OpenClaw' },

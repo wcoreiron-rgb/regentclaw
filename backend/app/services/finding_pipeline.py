@@ -339,6 +339,16 @@ async def ingest_findings(
         except Exception as exc:
             logger.error("Alert routing error for claw=%s: %s", claw, exc, exc_info=True)
 
+    # Auto-trigger remediation playbooks for critical/high findings
+    remediation_queue = [f for f in (policy_eval_queue + alert_queue)
+                         if f.severity in (FindingSeverity.CRITICAL, FindingSeverity.HIGH)]
+    for finding_obj in remediation_queue:
+        try:
+            from app.services.remediation.playbooks import check_and_trigger
+            await check_and_trigger(finding_obj, db)
+        except Exception as rem_err:
+            logger.warning("Remediation auto-trigger failed (non-fatal): %s", rem_err)
+
     # Event Trigger evaluation — fire any matching reactive triggers
     # We evaluate new/escalated findings separately
     trigger_fires = 0

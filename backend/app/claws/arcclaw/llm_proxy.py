@@ -16,9 +16,13 @@ Flow:
   REDACTED → strip secrets, forward clean version
 
 Supported providers:
-  - OpenAI  (GPT-4o, GPT-4, GPT-3.5)  → needs OPENAI_API_KEY
-  - Anthropic (Claude)                  → needs ANTHROPIC_API_KEY
-  - Ollama  (any local model)           → free, no key, runs locally
+  - OpenAI    (GPT-4o, GPT-4, GPT-3.5)  → needs OPENAI_API_KEY
+  - Anthropic (Claude)                   → needs ANTHROPIC_API_KEY
+  - Ollama    (any local model)          → free, no key, runs locally
+  - NVIDIA NIM (80+ models — free tier)  → needs NVIDIA_API_KEY
+    Base URL: https://integrate.api.nvidia.com/v1
+    Get a free key at: https://build.nvidia.com/models
+    Models: MiniMax M2.7, DeepSeek V3.2, Kimi K2.5, GLM 5.1, Nemotron, and many more
 """
 
 from __future__ import annotations
@@ -37,7 +41,11 @@ logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+NVIDIA_API_KEY    = os.getenv("NVIDIA_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+
+# NVIDIA NIM — OpenAI-compatible endpoint
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 TIMEOUT = 60.0  # seconds
 
@@ -196,18 +204,85 @@ async def call_ollama(
             return LLMResponse(provider="ollama", model=model, content="", error=str(e), success=False)
 
 
+# ── NVIDIA NIM (OpenAI-compatible — free tier, 80+ models) ───────────────────
+
+async def call_nvidia(
+    prompt: str,
+    model: str = "nvidia/nemotron-4-340b-instruct",
+    system: str = "You are a helpful assistant.",
+    api_key: Optional[str] = None,
+) -> LLMResponse:
+    """
+    Call NVIDIA NIM via its OpenAI-compatible chat completions endpoint.
+    Free API access available at https://build.nvidia.com/models
+    Base URL: https://integrate.api.nvidia.com/v1
+    """
+    resolved_key = api_key or NVIDIA_API_KEY
+    if not resolved_key:
+        return LLMResponse(
+            provider="nvidia", model=model, content="",
+            error=(
+                "NVIDIA API key not configured. "
+                "Get a free key at https://build.nvidia.com/models — "
+                "then add it via Connector Marketplace → NVIDIA NIM."
+            ),
+            success=False,
+        )
+
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        try:
+            resp = await client.post(
+                f"{NVIDIA_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {resolved_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user",   "content": prompt},
+                    ],
+                    "max_tokens": 1024,
+                    "temperature": 0.2,
+                    "top_p": 0.7,
+                    "stream": False,
+                },
+            )
+            resp.raise_for_status()
+            data   = resp.json()
+            choice = data["choices"][0]["message"]["content"]
+            tokens = data.get("usage", {}).get("total_tokens", 0)
+            return LLMResponse(provider="nvidia", model=model, content=choice, tokens_used=tokens)
+
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            if status == 401:
+                err = "NVIDIA API key is invalid or expired. Generate a new one at https://build.nvidia.com/models"
+            elif status == 422:
+                err = f"NVIDIA NIM: model '{model}' not found or unavailable. Check model ID at build.nvidia.com/models"
+            else:
+                err = f"NVIDIA NIM API error {status}: {e.response.text[:200]}"
+            logger.error(err)
+            return LLMResponse(provider="nvidia", model=model, content="", error=err, success=False)
+        except Exception as e:
+            return LLMResponse(provider="nvidia", model=model, content="", error=str(e), success=False)
+
+
 # ── Router ────────────────────────────────────────────────────────────────────
 
 PROVIDER_MAP = {
     "openai":    call_openai,
     "anthropic": call_anthropic,
     "ollama":    call_ollama,
+    "nvidia":    call_nvidia,
 }
 
 MODEL_DEFAULTS = {
     "openai":    "gpt-4o-mini",
     "anthropic": "claude-3-haiku-20240307",
     "ollama":    "llama3.2",
+    "nvidia":    "nvidia/nemotron-4-340b-instruct",
 }
 
 
@@ -251,6 +326,7 @@ async def fetch_ollama_models() -> tuple[list[str], bool]:
 async def available_providers(
     openai_key: Optional[str] = None,
     anthropic_key: Optional[str] = None,
+    nvidia_key: Optional[str] = None,
 ) -> list[dict]:
     """
     Return which providers are configured and ready, with live Ollama model list.
@@ -262,8 +338,20 @@ async def available_providers(
 
     has_openai    = bool(openai_key    or OPENAI_API_KEY)
     has_anthropic = bool(anthropic_key or ANTHROPIC_API_KEY)
+    has_nvidia    = bool(nvidia_key    or NVIDIA_API_KEY)
 
     return [
+        {
+            "provider": "anthropic",
+            "label": "Anthropic (Claude)",
+            "models": ["claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229"],
+            "ready": has_anthropic,
+            "setup": (
+                "Connected via Connector Marketplace" if has_anthropic
+                else "Add your Anthropic API key via Connector Marketplace → Anthropic Claude"
+            ),
+            "cost": "paid",
+        },
         {
             "provider": "openai",
             "label": "OpenAI (GPT-4o)",
@@ -276,15 +364,27 @@ async def available_providers(
             "cost": "paid",
         },
         {
-            "provider": "anthropic",
-            "label": "Anthropic (Claude)",
-            "models": ["claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229"],
-            "ready": has_anthropic,
+            "provider": "nvidia",
+            "label": "NVIDIA NIM (Free Tier)",
+            "models": [
+                "nvidia/nemotron-4-340b-instruct",
+                "mistralai/mixtral-8x22b-instruct-v0.1",
+                "meta/llama-3.1-405b-instruct",
+                "deepseek-ai/deepseek-r1",
+                "deepseek-ai/deepseek-v3",
+                "minimaxai/minimax-m2",
+                "moonshotai/kimi-k2-instruct",
+            ],
+            "ready": has_nvidia,
             "setup": (
-                "Connected via Connector Marketplace" if has_anthropic
-                else "Add your Anthropic API key via Connector Marketplace → Anthropic Claude"
+                "Connected — 80+ models available at build.nvidia.com/models" if has_nvidia
+                else (
+                    "Get a FREE API key at https://build.nvidia.com/models "
+                    "→ Connector Marketplace → NVIDIA NIM"
+                )
             ),
-            "cost": "paid",
+            "cost": "free_tier",
+            "info": "Free access to 80+ frontier models via NVIDIA NIM. No credit card required.",
         },
         {
             "provider": "ollama",

@@ -465,10 +465,11 @@ function EventRow({ event: e, findings, cats, detectedTypes }: {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 // Provider display config
-const PROVIDER_META: Record<string, { label: string; color: string; toolSupport: boolean }> = {
-  anthropic: { label: 'Claude',  color: '#d4a27f', toolSupport: true  },
-  openai:    { label: 'OpenAI',  color: '#74aa9c', toolSupport: true  },
-  ollama:    { label: 'Ollama',  color: '#a78bfa', toolSupport: false },
+const PROVIDER_META: Record<string, { label: string; color: string; toolSupport: boolean; badge?: string }> = {
+  anthropic: { label: 'Claude',       color: '#d4a27f', toolSupport: true  },
+  openai:    { label: 'OpenAI',       color: '#74aa9c', toolSupport: true  },
+  nvidia:    { label: 'NVIDIA NIM',   color: '#76b900', toolSupport: true,  badge: 'Free' },
+  ollama:    { label: 'Ollama',       color: '#a78bfa', toolSupport: false },
 };
 
 export default function ArcClawPage() {
@@ -479,7 +480,7 @@ export default function ArcClawPage() {
   const [tab, setTab]             = useState<'copilot' | 'governance'>('copilot');
 
   // Model selection
-  const [availableModels, setAvailableModels] = useState<Record<string, any[]>>({ anthropic: [], openai: [], ollama: [] });
+  const [availableModels, setAvailableModels] = useState<Record<string, any[]>>({ anthropic: [], openai: [], nvidia: [], ollama: [] });
   const [selectedModel, setSelectedModel]     = useState<string>('');
   const [loadingModels, setLoadingModels]     = useState(false);
 
@@ -672,7 +673,7 @@ export default function ArcClawPage() {
             {/* Provider row */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium w-16 flex-shrink-0" style={{ color: "var(--rc-text-3)" }}>Provider</span>
-              {(['anthropic', 'openai', 'ollama'] as const).map(p => {
+              {(['anthropic', 'openai', 'nvidia', 'ollama'] as const).map(p => {
                 const meta  = PROVIDER_META[p];
                 const pData = providers.find(pd => pd.provider === p);
                 const ready = pData?.ready ?? false;
@@ -689,6 +690,17 @@ export default function ArcClawPage() {
                     <span className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ background: active ? meta.color : 'var(--rc-text-3)' }} />
                     {meta.label}
+                    {/* Free badge for NVIDIA */}
+                    {meta.badge && (
+                      <span className="px-1 py-0.5 rounded text-xs font-bold leading-none"
+                        style={{
+                          background: active ? `${meta.color}30` : 'rgba(118,185,0,0.15)',
+                          color: '#76b900',
+                          fontSize: '9px',
+                        }}>
+                        {meta.badge}
+                      </span>
+                    )}
                     {!meta.toolSupport && (
                       <span className="text-purple-400 text-xs ml-0.5" title="No tool calling">⚡</span>
                     )}
@@ -714,6 +726,13 @@ export default function ArcClawPage() {
                 <span className="text-xs pt-1.5" style={{ color: "var(--rc-text-3)" }}>
                   {provider === 'ollama'
                     ? 'No Ollama models found — run: ollama pull llama3.2'
+                    : provider === 'nvidia'
+                    ? <>Get a free key at{' '}
+                        <a href="https://build.nvidia.com/models" target="_blank" rel="noreferrer"
+                           className="underline" style={{ color: '#76b900' }}>
+                          build.nvidia.com/models
+                        </a>
+                        {' '}→ add via Connector Marketplace → NVIDIA NIM</>
                     : 'Configure API key in Connector Marketplace to see models'}
                 </span>
               ) : (
@@ -920,14 +939,25 @@ export default function ArcClawPage() {
           {selectedProvider && !selectedProvider.ready && provider !== 'ollama' && (
             <div className="rounded-lg border px-4 py-3 text-sm flex items-center gap-2"
               style={{
-                background: "rgba(234,179,8,0.05)",
-                borderColor: "rgba(234,179,8,0.3)",
-                color: "#fbbf24",
+                background: provider === 'nvidia' ? "rgba(118,185,0,0.05)" : "rgba(234,179,8,0.05)",
+                borderColor: provider === 'nvidia' ? "rgba(118,185,0,0.3)" : "rgba(234,179,8,0.3)",
+                color: provider === 'nvidia' ? "#76b900" : "#fbbf24",
               }}>
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              {provider === 'nvidia'
+                ? <span className="text-base flex-shrink-0">🆓</span>
+                : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
               <span>
-                {selectedProvider.label} API key not configured. Tool calling will fail.
-                {" "}Add via <strong>Connector Marketplace</strong>.
+                {provider === 'nvidia'
+                  ? <>
+                      <strong>NVIDIA NIM is free</strong> — get your API key at{' '}
+                      <a href="https://build.nvidia.com/models" target="_blank" rel="noreferrer"
+                         className="underline font-medium">build.nvidia.com/models</a>
+                      {' '}and add it via <strong>Connector Marketplace → NVIDIA NIM</strong>.
+                      Access 80+ frontier models at no cost.
+                    </>
+                  : <>{selectedProvider.label} API key not configured. Tool calling will fail.
+                      {" "}Add via <strong>Connector Marketplace</strong>.</>
+                }
               </span>
             </div>
           )}

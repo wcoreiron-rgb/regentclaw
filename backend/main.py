@@ -30,6 +30,7 @@ from app.models.channel_gateway import ChannelMessage, ChannelIdentity, ChannelC
 from app.models.exec_channels import ExecRequest, CredentialBrokerEntry, ProductionGate  # noqa: F401
 from app.models.entity_profile import EntityProfile, BehaviorEvent  # noqa: F401
 from app.models.customclaw import CustomClawDefinition  # noqa: F401
+from app.models.remediation import RemediationAction, RemediationPlaybook  # noqa: F401
 
 # Routers
 from app.api.routes.dashboard import router as dashboard_router
@@ -79,6 +80,7 @@ from app.claws.devclaw.routes import router as devclaw_router
 from app.claws.intelclaw.routes import router as intelclaw_router
 from app.claws.recoveryclaw.routes import router as recoveryclaw_router
 from app.claws.customclaw.routes import router as customclaw_router
+from app.api.routes.remediation import router as remediation_router
 
 
 @asynccontextmanager
@@ -170,6 +172,7 @@ app.include_router(devclaw_router, prefix=PREFIX)
 app.include_router(intelclaw_router, prefix=PREFIX)
 app.include_router(recoveryclaw_router, prefix=PREFIX)
 app.include_router(customclaw_router, prefix=PREFIX)
+app.include_router(remediation_router, prefix=PREFIX)
 
 
 @app.get("/health")

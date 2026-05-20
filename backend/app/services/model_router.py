@@ -44,6 +44,7 @@ class Provider:
     AZURE_OPENAI  = "azure_openai" # Enterprise
     ANTHROPIC     = "anthropic"    # Cloud
     OPENAI        = "openai"       # Cloud
+    NVIDIA        = "nvidia"       # Cloud — free tier (NVIDIA NIM)
     MOCK          = "mock"         # Dev / test fallback
 
 
@@ -195,6 +196,45 @@ async def _call_azure_openai(prompt: str, model: str = "gpt-4o", **_) -> dict:
     }
 
 
+async def _call_nvidia(prompt: str, model: str = "nvidia/nemotron-4-340b-instruct", **_) -> dict:
+    """
+    Call NVIDIA NIM via its OpenAI-compatible endpoint.
+    Free API key: https://build.nvidia.com/models
+    Base URL: https://integrate.api.nvidia.com/v1
+    """
+    import httpx
+    import os
+
+    key = os.getenv("NVIDIA_API_KEY", "")
+    if not key:
+        raise ValueError(
+            "NVIDIA_API_KEY not set. Get a free key at https://build.nvidia.com/models"
+        )
+
+    start = datetime.utcnow()
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(
+            "https://integrate.api.nvidia.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 1024,
+                "temperature": 0.2,
+            },
+        )
+        resp.raise_for_status()
+    elapsed = int((datetime.utcnow() - start).total_seconds() * 1000)
+    body = resp.json()
+    return {
+        "provider": Provider.NVIDIA,
+        "model": model,
+        "response": body["choices"][0]["message"]["content"],
+        "usage": body.get("usage", {}),
+        "latency_ms": elapsed,
+    }
+
+
 async def _call_anthropic(prompt: str, model: str = "claude-3-5-sonnet-20241022", **_) -> dict:
     """Call Anthropic API."""
     import httpx
@@ -236,6 +276,7 @@ _PROVIDER_BACKENDS = {
     Provider.OLLAMA:       _call_ollama,
     Provider.AZURE_OPENAI: _call_azure_openai,
     Provider.ANTHROPIC:    _call_anthropic,
+    Provider.NVIDIA:       _call_nvidia,
     Provider.MOCK:         _call_mock,
 }
 
@@ -274,12 +315,17 @@ def reset_routing_table():
 
 
 def get_provider_status() -> dict[str, dict]:
-    providers = [Provider.OLLAMA, Provider.AZURE_OPENAI, Provider.ANTHROPIC, Provider.OPENAI, Provider.MOCK]
+    providers = [Provider.OLLAMA, Provider.AZURE_OPENAI, Provider.ANTHROPIC, Provider.OPENAI, Provider.NVIDIA, Provider.MOCK]
+    tier_map = {
+        Provider.OLLAMA:       "local",
+        Provider.AZURE_OPENAI: "enterprise",
+        Provider.NVIDIA:       "cloud_free",
+    }
     return {
         p: {
             "provider": p,
             "status": _provider_status.get(p, "unknown"),
-            "tier": "local" if p == Provider.OLLAMA else ("enterprise" if p == Provider.AZURE_OPENAI else "cloud"),
+            "tier": tier_map.get(p, "cloud"),
         }
         for p in providers
     }
@@ -395,7 +441,7 @@ def _redact_if_needed(prompt: str, sensitivity: str, provider: str) -> str:
     Cloud providers should only receive PUBLIC/INTERNAL data — this is a
     last-resort safety net, not the primary control.
     """
-    if provider in (Provider.ANTHROPIC, Provider.OPENAI) and \
+    if provider in (Provider.ANTHROPIC, Provider.OPENAI, Provider.NVIDIA) and \
        _SENSITIVITY_RANK[sensitivity] >= _SENSITIVITY_RANK[Sensitivity.RESTRICTED]:
         # Redact anything that looks like a credential
         prompt = re.sub(

@@ -517,6 +517,8 @@ async def execute_workflow(
                 result_data = await _exec_http_request(step, ctx)
             elif step_type == "webhook_call":
                 result_data = await _exec_webhook_call(step, ctx)
+            elif step_type == "remediate":
+                result_data = await _exec_remediate(step, db, ctx)
             else:
                 result_data = {"status": "skipped", "output": f"Unknown step type: {step_type}"}
 
@@ -587,6 +589,37 @@ async def execute_workflow(
 
     await _finalize_run(run, workflow, db)
     return run
+
+
+async def _exec_remediate(step: Dict, db: AsyncSession, ctx: Dict) -> Dict:
+    """Execute a remediation action as a workflow step."""
+    from app.services.remediation.engine import execute_remediation
+    config    = step.get("config", {})
+    target_id = (
+        config.get("target_id")
+        or ctx.get(config.get("target_from", ""), "unknown")
+    )
+    try:
+        result = await execute_remediation(
+            action_spec={
+                "provider":     config.get("provider", "generic"),
+                "action_type":  config.get("action_type", "send_slack_alert"),
+                "target_id":    target_id,
+                "target_type":  config.get("target_type", "unknown"),
+                "target_label": config.get("target_label", target_id),
+                "parameters":   config.get("parameters", {}),
+            },
+            db=db,
+            triggered_by="workflow",
+        )
+        return {
+            "status":    result.status.value if hasattr(result.status, "value") else str(result.status),
+            "action_id": str(result.id),
+            "output":    f"Remediation {result.status}: {result.output or result.error or ''}",
+        }
+    except Exception as exc:
+        logger.error("Remediation step failed: %s", exc)
+        return {"status": "failed", "output": f"Remediation error: {exc}"}
 
 
 async def _finalize_run(run: WorkflowRun, workflow: Workflow, db: AsyncSession):
