@@ -650,7 +650,7 @@ export default function ConnectorsPage() {
         <ConfigureModal
           connector={configuring}
           onClose={() => setConfiguring(null)}
-          onUpdate={c => { handleUpdate(c); setConfiguring(null); }}
+          onUpdate={c => { handleUpdate(c); /* keep modal open — user still needs to test */ }}
         />
       )}
 
