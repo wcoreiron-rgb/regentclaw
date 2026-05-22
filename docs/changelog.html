@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Changelog — RegentClaw</title>
+  <meta name="description" content="What's new in RegentClaw — features shipped, integrations added, and fixes landed." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #111111;
+      --surface2:  #1a1a1a;
+      --border:    #2a2a2a;
+      --blue:      #3b82f6;
+      --blue-dim:  #1d4ed8;
+      --purple:    #8b5cf6;
+      --green:     #22c55e;
+      --orange:    #f97316;
+      --red:       #ef4444;
+      --nvidia:    #76b900;
+      --text:      #f4f4f5;
+      --text2:     #a1a1aa;
+      --text3:     #71717a;
+      --radius:    8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+    .nav-logo .claw-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .nav-logo .claw-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .nav-links { list-style: none; display: flex; align-items: center; gap: 28px; }
+    .nav-links a { font-size: .9rem; color: var(--text2); transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .btn-nav {
+      background: var(--blue);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+    .nav-links .btn-nav:hover { background: var(--blue-dim); }
+    .nav-links .active-page { color: var(--text); font-weight: 600; }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* ── HEADER ── */
+    .page-header {
+      margin-bottom: 56px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+    }
+    .page-header h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--text) 40%, var(--text2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+    .page-header p {
+      color: var(--text2);
+      font-size: 1.05rem;
+      max-width: 560px;
+    }
+    .feed-links {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .feed-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      color: var(--text3);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 20px;
+      transition: border-color .2s, color .2s;
+    }
+    .feed-links a:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── RELEASE ── */
+    .release {
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 56px;
+    }
+    .release::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 28px;
+      bottom: -56px;
+      width: 2px;
+      background: var(--border);
+    }
+    .release:last-child::before { display: none; }
+
+    .release-dot {
+      position: absolute;
+      left: 0;
+      top: 20px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+    }
+
+    .release-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .release-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .release-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .72rem;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .tag-new     { background: rgba(34,197,94,.12);  color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+    .tag-fix     { background: rgba(59,130,246,.12); color: var(--blue);   border: 1px solid rgba(59,130,246,.3); }
+    .tag-feat    { background: rgba(139,92,246,.12); color: var(--purple); border: 1px solid rgba(139,92,246,.3); }
+    .tag-perf    { background: rgba(249,115,22,.12); color: var(--orange); border: 1px solid rgba(249,115,22,.3); }
+    .tag-sec     { background: rgba(239,68,68,.12);  color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+    .tag-nvidia  { background: rgba(118,185,0,.12);  color: var(--nvidia); border: 1px solid rgba(118,185,0,.3); }
+
+    .release-date {
+      font-size: .8rem;
+      color: var(--text3);
+      padding-top: 2px;
+    }
+
+    .release-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .release-description {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text2);
+      font-size: .95rem;
+      line-height: 1.7;
+    }
+
+    .change-section {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .change-section:last-child { border-bottom: none; }
+
+    .change-section-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 12px;
+    }
+
+    .change-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .change-list li {
+      display: flex;
+      gap: 10px;
+      font-size: .9rem;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .change-list li::before {
+      content: '→';
+      color: var(--text3);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .change-list li strong { color: var(--text); font-weight: 600; }
+    .change-list li code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: .82em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #a5f3fc;
+    }
+
+    .release-footer {
+      padding: 14px 24px;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+    }
+    .release-footer a {
+      font-size: .8rem;
+      color: var(--text3);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color .2s;
+    }
+    .release-footer a:hover { color: var(--blue); }
+    .release-footer .divider { color: var(--border); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text3);
+      font-size: .85rem;
+    }
+    footer nav { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; background: none; border: none; position: static; }
+    footer nav a:hover { color: var(--text2); }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="claw-icon"><img src="logo.png" alt="RegentClaw" /></div>
+      RegentClaw
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#claws">Claws</a></li>
+      <li><a href="index.html#architecture">Architecture</a></li>
+      <li><a href="docs.html">Docs</a></li>
+      <li><a href="changelog.html" class="active-page">Changelog</a></li>
+      <li><a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="btn-nav">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="container">
+
+  <div class="page-header">
+    <h1>Changelog</h1>
+    <p>Every feature shipped, integration added, and fix landed — in order.
+       New features are published here when they're tested and ready.</p>
+    <div class="feed-links">
+      <a href="https://github.com/wcoreiron-rgb/regentclaw/releases" target="_blank" rel="noopener">
+        &#9679; GitHub Releases
+      </a>
+      <a href="https://github.com/wcoreiron-rgb/regentclaw/commits/main" target="_blank" rel="noopener">
+        &#9679; Commit History
+      </a>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!--  v0.2.0 — NVIDIA NIM Integration                                    -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <div class="release">
+    <div class="release-dot" style="background: var(--nvidia);"></div>
+
+    <div class="release-header">
+      <div>
+        <div class="release-title">NVIDIA NIM Integration</div>
+        <div class="release-meta" style="margin-top:6px;">
+          <span class="tag tag-nvidia">&#9733; NVIDIA NIM</span>
+          <span class="tag tag-new">New Feature</span>
+          <span class="tag tag-feat">AI / LLM</span>
+          <span class="release-date">May 22, 2026 &nbsp;·&nbsp; v0.2.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="release-body">
+      <div class="release-description">
+        Security Copilot now supports <strong>NVIDIA NIM</strong> — 80+ frontier models with a
+        free API tier, no credit card required. Add your free key from
+        <a href="https://build.nvidia.com/models" target="_blank" rel="noopener" style="color:var(--nvidia); text-decoration:underline;">build.nvidia.com/models</a>
+        via the Connector Marketplace and Security Copilot activates immediately with full
+        live tool calling: CVE lookups, CISA KEV feed, MITRE ATT&amp;CK search, findings queries,
+        and autonomous workflow triggers.
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">What's New</div>
+        <ul class="change-list">
+          <li><strong>NVIDIA NIM connector</strong> added to Connector Marketplace — configure your free API key in 4 steps.</li>
+          <li><strong>Security Copilot auto-activates</strong> when a ready provider is detected on page load.</li>
+          <li><strong>Live model list</strong> fetched from the NIM API on each page load — only models confirmed to support tool calling are shown.</li>
+          <li><strong>8 tool-capable models</strong> available: Llama 3.3 70B (recommended), Llama 3.1 70B, Nemotron 70B, Nemotron Super 49B, Mistral Large 2, Mistral Nemo, Qwen 2.5 72B, Llama 3.1 8B.</li>
+          <li><strong>In-chat "Open Connector Marketplace" button</strong> appears when a key is missing — one click to configure.</li>
+        </ul>
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">Fixes &amp; Reliability</div>
+        <ul class="change-list">
+          <li><strong>Connector modal</strong> now advances through all 4 steps (Credentials → Policy Check → Test → Done) without closing mid-flow.</li>
+          <li><strong>Next.js proxy timeout</strong> bypassed via a dedicated route handler with <code>maxDuration=300</code> — long LLM tool chains no longer drop with <code>ECONNRESET</code>.</li>
+          <li><strong>Connector type mapping</strong> fixed — <code>nvidia</code> provider now resolves to <code>nvidia_nim</code> connector correctly.</li>
+          <li><strong>Body stream error</strong> in Security Copilot resolved — response body read once as text, then JSON-parsed.</li>
+          <li><strong>Agent timeout</strong> raised from 60 s → 120 s for multi-step tool chains.</li>
+        </ul>
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">How to Enable</div>
+        <ul class="change-list">
+          <li>Get a free NVIDIA NIM key at <a href="https://build.nvidia.com/models" target="_blank" rel="noopener" style="color:var(--nvidia);">build.nvidia.com/models</a> — no credit card needed.</li>
+          <li>Open RegentClaw → <strong>Connectors</strong> → search <em>NVIDIA NIM</em> → click <strong>Configure</strong>.</li>
+          <li>Paste your key → complete the 4-step flow → done.</li>
+          <li>Navigate to <strong>ArcClaw</strong> → Security Copilot auto-activates with NVIDIA NIM selected.</li>
+        </ul>
+      </div>
+
+      <div class="release-footer">
+        <a href="https://github.com/wcoreiron-rgb/regentclaw/releases/tag/v0.2.0-nvidia-nim" target="_blank" rel="noopener">
+          &#9655; View tag v0.2.0-nvidia-nim
+        </a>
+        <span class="divider">|</span>
+        <a href="https://github.com/wcoreiron-rgb/regentclaw/compare/81cebdc...9877277" target="_blank" rel="noopener">
+          &#9655; Full diff
+        </a>
+        <span class="divider">|</span>
+        <a href="https://build.nvidia.com/models" target="_blank" rel="noopener">
+          &#9655; Get free NVIDIA NIM key
+        </a>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!--  v0.1.1 — Autonomous Remediation Engine                             -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <div class="release">
+    <div class="release-dot" style="background: var(--red);"></div>
+
+    <div class="release-header">
+      <div>
+        <div class="release-title">Autonomous Remediation Engine</div>
+        <div class="release-meta" style="margin-top:6px;">
+          <span class="tag tag-feat">New Feature</span>
+          <span class="tag tag-sec">Security</span>
+          <span class="release-date">May 2026 &nbsp;·&nbsp; v0.1.1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="release-body">
+      <div class="release-description">
+        RegentClaw can now automatically respond to critical and high-severity findings.
+        When a finding fires, the engine matches it against active playbooks, executes
+        safe actions instantly, and gates high-risk actions (quarantine, account suspend)
+        behind a human approval queue with a 30-minute expiry.
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">What's New</div>
+        <ul class="change-list">
+          <li><strong>5 built-in playbooks</strong>: compromised credential, exposed secret, endpoint compromise, privilege escalation, data exfiltration.</li>
+          <li><strong>Human approval queue</strong> — high-risk actions (quarantine, account suspend) require sign-off before execution.</li>
+          <li><strong>One-click rollback</strong> — every executed action stores rollback data so it can be reversed instantly.</li>
+          <li><strong>Provider integrations</strong>: Okta, Entra ID, AWS IAM, CrowdStrike, Defender, SentinelOne, GitHub, Jira, PagerDuty, Slack.</li>
+          <li><strong>Remediation page</strong> at <code>/remediation</code> — approval queue, action history, playbook grid, stats.</li>
+          <li><strong>Finding pipeline integration</strong> — critical/high findings automatically trigger playbook matching.</li>
+        </ul>
+      </div>
+
+      <div class="release-footer">
+        <a href="https://github.com/wcoreiron-rgb/regentclaw/releases/tag/v0.1.1" target="_blank" rel="noopener">
+          &#9655; View tag v0.1.1
+        </a>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!--  v0.1.0 — Initial Release                                           -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <div class="release">
+    <div class="release-dot" style="background: var(--blue);"></div>
+
+    <div class="release-header">
+      <div>
+        <div class="release-title">Initial Release — Zero Trust Platform</div>
+        <div class="release-meta" style="margin-top:6px;">
+          <span class="tag tag-new">Launch</span>
+          <span class="release-date">May 2026 &nbsp;·&nbsp; v0.1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="release-body">
+      <div class="release-description">
+        First public release of RegentClaw — a self-hosted, open-source Zero Trust Security
+        platform. 24 specialized security modules (Claws), a central Trust Fabric enforcement
+        layer, AI governance, policy engine, and a full connector marketplace for integrating
+        your own tools and credentials locally.
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">Included at Launch</div>
+        <ul class="change-list">
+          <li><strong>24 Claw modules</strong> — ArcClaw (AI), CloudClaw, EndpointClaw, IdentityClaw, ExposureClaw, ThreatClaw, and 18 more.</li>
+          <li><strong>Trust Fabric</strong> — central policy evaluation, risk scoring, and audit for every action.</li>
+          <li><strong>Security Copilot</strong> (ArcClaw) — AI agent with live tool calling: CVEs, MITRE ATT&amp;CK, findings, scans, workflow triggers.</li>
+          <li><strong>AI Governance</strong> — prompt injection detection (12-vector AGT audit), PII/secret redaction, risk scoring, full audit log.</li>
+          <li><strong>Connector Marketplace</strong> — 100+ connectors, Fernet-encrypted credentials stored locally, never in the cloud.</li>
+          <li><strong>Policy Engine</strong> — define allow/block/alert rules scoped to any connector, user, or module.</li>
+          <li><strong>Workflows</strong> — multi-step automation with branching, conditions, and remediation steps.</li>
+          <li><strong>FastAPI + SQLAlchemy async + PostgreSQL + Redis + Next.js 14</strong> stack.</li>
+        </ul>
+      </div>
+
+      <div class="release-footer">
+        <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener">
+          &#9655; View on GitHub
+        </a>
+        <span class="divider">|</span>
+        <a href="docs.html" >
+          &#9655; Setup Guide
+        </a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="docs.html">Docs</a>
+    <a href="changelog.html">Changelog</a>
+    <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <p>&copy; 2026 RegentClaw. Open-source Zero Trust Security Platform.</p>
+</footer>
+
+</body>
+</html>
