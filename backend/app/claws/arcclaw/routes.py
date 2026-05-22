@@ -31,9 +31,18 @@ async def _resolve_llm_key(db: AsyncSession, provider: str) -> Opt[str]:
     Checks the Connector table for a connector with matching connector_type,
     then reads its stored credentials. Returns None if not found/configured.
     """
+    # Map provider names to connector_type values in the DB.
+    # "nvidia" → "nvidia_nim" because the seed connector uses nvidia_nim.
+    PROVIDER_TYPE_MAP = {
+        "nvidia":    "nvidia_nim",
+        "openai":    "openai",
+        "anthropic": "anthropic",
+        "azure_openai": "azure_openai",
+    }
+    connector_type = PROVIDER_TYPE_MAP.get(provider, provider)
     try:
         result = await db.execute(
-            select(Connector).where(Connector.connector_type == provider)
+            select(Connector).where(Connector.connector_type == connector_type)
         )
         connector = result.scalar_one_or_none()
         if not connector:
