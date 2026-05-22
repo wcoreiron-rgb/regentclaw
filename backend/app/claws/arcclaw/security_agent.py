@@ -439,7 +439,7 @@ async def _execute_tool(name: str, inputs: dict, db) -> dict:
         elif name == "run_claw_scan":
             claw = inputs.get("claw", "").lower().strip()
             has_real = await _claw_has_connector(claw)
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
                 r = await client.post(f"{BASE}/{claw}/scan")
                 if r.status_code != 200:
                     return {"error": f"Scan failed for claw '{claw}'"}
@@ -694,7 +694,7 @@ async def _run_anthropic_agent(
             "messages": current_messages,
         }
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
             r = await client.post(
                 "https://api.anthropic.com/v1/messages",
                 headers=headers,
@@ -809,7 +809,7 @@ async def _run_openai_agent(
             "tool_choice": "auto",
         }
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
             r = await client.post(
                 f"{base_url.rstrip('/')}/chat/completions",
                 headers={
