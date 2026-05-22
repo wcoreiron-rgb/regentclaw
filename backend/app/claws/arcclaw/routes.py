@@ -604,9 +604,10 @@ async def agent_chat(
 
 
 @router.get("/agent/models", summary="List available models per provider")
-async def get_agent_models():
+async def get_agent_models(db: AsyncSession = Depends(get_db)):
     """
-    Returns available models for Anthropic, OpenAI, and Ollama.
+    Returns available models per provider.
+    NVIDIA NIM models are fetched live from the API when a key is configured.
     Ollama models are fetched live from the local Ollama daemon.
     """
     import httpx as hx
@@ -649,28 +650,88 @@ async def get_agent_models():
     except Exception:
         pass  # Ollama not running or no models
 
-    # NVIDIA NIM — curated selection of the best free-tier models
-    # Full catalogue at https://build.nvidia.com/models (80+ models)
-    NVIDIA_MODELS = [
-        {"id": "nvidia/nemotron-4-340b-instruct",           "name": "Nemotron 340B",        "tag": "NVIDIA Flagship",  "tier": "top"},
+    # NVIDIA NIM — fetch live model list from the API so we always have current models.
+    # Fall back to a small curated list if the API is unreachable or key not set.
+    NVIDIA_FALLBACK = [
+        {"id": "meta/llama-3.3-70b-instruct",               "name": "Llama 3.3 70B",       "tag": "Meta · Balanced",  "tier": "mid"},
         {"id": "meta/llama-3.1-405b-instruct",              "name": "Llama 3.1 405B",       "tag": "Meta · Largest",   "tier": "top"},
-        {"id": "meta/llama-3.3-70b-instruct",               "name": "Llama 3.3 70B",        "tag": "Meta · Balanced",  "tier": "mid"},
-        {"id": "mistralai/mistral-large-2-instruct",        "name": "Mistral Large 2",       "tag": "Mistral · Top",    "tier": "top"},
-        {"id": "mistralai/mixtral-8x22b-instruct-v0.1",     "name": "Mixtral 8x22B",        "tag": "MoE · Powerful",   "tier": "mid"},
         {"id": "deepseek-ai/deepseek-r1",                   "name": "DeepSeek R1",          "tag": "Reasoning",        "tier": "reasoning"},
-        {"id": "deepseek-ai/deepseek-v3-0324",              "name": "DeepSeek V3",          "tag": "Latest · Fast",    "tier": "top"},
-        {"id": "minimaxai/minimax-m2",                      "name": "MiniMax M2",           "tag": "Long Context",     "tier": "mid"},
-        {"id": "moonshotai/kimi-k2-instruct",               "name": "Kimi K2",              "tag": "Agentic",          "tier": "mid"},
-        {"id": "zhipuai/glm-4-9b-chat",                    "name": "GLM 4 9B",             "tag": "Lightweight",      "tier": "fast"},
-        {"id": "google/gemma-3-27b-it",                    "name": "Gemma 3 27B",          "tag": "Google · Open",    "tier": "mid"},
-        {"id": "qwen/qwen2.5-72b-instruct",                "name": "Qwen 2.5 72B",         "tag": "Alibaba",          "tier": "mid"},
-        {"id": "microsoft/phi-4",                          "name": "Phi-4",                "tag": "MSFT · Efficient", "tier": "fast"},
+        {"id": "microsoft/phi-4",                           "name": "Phi-4",                "tag": "MSFT · Efficient", "tier": "fast"},
     ]
+
+    # Priority display names / tags for well-known model IDs
+    NVIDIA_META: dict[str, dict] = {
+        "meta/llama-3.3-70b-instruct":          {"name": "Llama 3.3 70B",       "tag": "Meta · Balanced",   "tier": "mid"},
+        "meta/llama-3.1-405b-instruct":         {"name": "Llama 3.1 405B",      "tag": "Meta · Largest",    "tier": "top"},
+        "meta/llama-3.1-70b-instruct":          {"name": "Llama 3.1 70B",       "tag": "Meta · Fast",       "tier": "mid"},
+        "meta/llama-3.1-8b-instruct":           {"name": "Llama 3.1 8B",        "tag": "Meta · Tiny",       "tier": "fast"},
+        "deepseek-ai/deepseek-r1":              {"name": "DeepSeek R1",         "tag": "Reasoning",          "tier": "reasoning"},
+        "deepseek-ai/deepseek-v3-0324":         {"name": "DeepSeek V3",         "tag": "Latest · Fast",      "tier": "top"},
+        "mistralai/mistral-large-2-instruct":   {"name": "Mistral Large 2",     "tag": "Mistral · Top",      "tier": "top"},
+        "mistralai/mistral-7b-instruct-v0.3":   {"name": "Mistral 7B",          "tag": "Mistral · Fast",     "tier": "fast"},
+        "microsoft/phi-4":                      {"name": "Phi-4",               "tag": "MSFT · Efficient",   "tier": "fast"},
+        "microsoft/phi-4-mini-instruct":        {"name": "Phi-4 Mini",          "tag": "MSFT · Tiny",        "tier": "fast"},
+        "google/gemma-3-27b-it":               {"name": "Gemma 3 27B",         "tag": "Google · Open",      "tier": "mid"},
+        "google/gemma-3-12b-it":               {"name": "Gemma 3 12B",         "tag": "Google · Small",     "tier": "fast"},
+        "qwen/qwen2.5-72b-instruct":           {"name": "Qwen 2.5 72B",        "tag": "Alibaba",            "tier": "mid"},
+        "qwen/qwen3-235b-a22b":               {"name": "Qwen 3 235B",         "tag": "Alibaba · Flagship",  "tier": "top"},
+        "nvidia/llama-3.1-nemotron-70b-instruct": {"name": "Nemotron 70B",     "tag": "NVIDIA · Instruct",  "tier": "top"},
+        "nvidia/llama-3.3-nemotron-super-49b-v1": {"name": "Nemotron Super 49B","tag": "NVIDIA · Balanced", "tier": "mid"},
+        "moonshotai/kimi-k2-instruct":         {"name": "Kimi K2",             "tag": "Agentic",            "tier": "mid"},
+    }
+
+    nvidia_models = NVIDIA_FALLBACK
+    try:
+        # Resolve the key the same way _resolve_llm_key does
+        nim_result = await db.execute(
+            select(Connector).where(Connector.connector_type == "nvidia_nim")
+        )
+        nim_connector = nim_result.scalar_one_or_none()
+        nim_key = None
+        if nim_connector:
+            creds = secrets_manager.get_credential(str(nim_connector.id))
+            nim_key = (creds or {}).get("api_key")
+        if nim_key:
+            async with hx.AsyncClient(timeout=hx.Timeout(8.0)) as client:
+                r = await client.get(
+                    "https://integrate.api.nvidia.com/v1/models",
+                    headers={"Authorization": f"Bearer {nim_key}"},
+                )
+                if r.status_code == 200:
+                    raw = r.json().get("data", [])
+                    # Keep only chat/instruct models; skip embedding/reranking
+                    chat_models = [
+                        m for m in raw
+                        if any(k in m.get("id", "").lower()
+                               for k in ("instruct", "chat", "r1", "v3", "k2", "nemotron", "phi", "gemma"))
+                    ]
+                    # Sort: known models first (preserve NVIDIA_META order), rest alphabetically
+                    def sort_key(m):
+                        mid = m.get("id", "")
+                        order = list(NVIDIA_META.keys())
+                        return (order.index(mid) if mid in order else len(order), mid)
+                    chat_models.sort(key=sort_key)
+                    if chat_models:
+                        nvidia_models = []
+                        for m in chat_models[:20]:  # cap at 20 in the picker
+                            mid = m["id"]
+                            meta = NVIDIA_META.get(mid, {})
+                            # Derive a readable name from the id if not in our map
+                            parts = mid.split("/")[-1].replace("-instruct", "").replace("-it", "")
+                            auto_name = " ".join(w.capitalize() for w in parts.split("-")[:4])
+                            nvidia_models.append({
+                                "id":   mid,
+                                "name": meta.get("name", auto_name),
+                                "tag":  meta.get("tag",  "NVIDIA NIM"),
+                                "tier": meta.get("tier", "mid"),
+                            })
+    except Exception:
+        pass  # Keep fallback list
 
     return {
         "anthropic": ANTHROPIC_MODELS,
         "openai":    OPENAI_MODELS,
-        "nvidia":    NVIDIA_MODELS,
+        "nvidia":    nvidia_models,
         "ollama":    ollama_models,
     }
 
