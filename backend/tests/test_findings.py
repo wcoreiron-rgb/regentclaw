@@ -72,3 +72,19 @@ async def test_findings_filter_by_severity(client):
     """GET /api/v1/findings with severity filter should not error."""
     resp = await client.get(FINDINGS_BASE, params={"severity": "high"})
     assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.asyncio
+async def test_findings_invalid_severity_returns_400(client):
+    """GET /api/v1/findings with an invalid severity should be a client error, not a 500."""
+    resp = await client.get(FINDINGS_BASE, params={"severity": "notreal"})
+    assert resp.status_code == 400, resp.text
+    assert "Invalid severity" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_finding_invalid_id_returns_400(client):
+    """PATCH /api/v1/findings/{id} with a malformed UUID should not crash."""
+    resp = await client.patch(f"{FINDINGS_BASE}/not-a-uuid", json={"status": "open"})
+    assert resp.status_code == 400, resp.text
+    assert resp.json()["detail"] == "Invalid finding id"

@@ -61,6 +61,9 @@ export default function AccessClawPage() {
 
   const shown = filterSev === 'all' ? findings : findings.filter(f => f.severity === filterSev);
   const configured = providers.filter(p => p.configured).length;
+  const totalFindings = stats?.total_findings ?? stats?.total ?? 0;
+  const criticalFindings = stats?.by_severity?.critical ?? stats?.critical ?? 0;
+  const mfaGaps = stats?.mfa_gaps ?? findings.filter(f => f.category === 'mfa_gap').length;
 
   return (
     <div className="space-y-6">
@@ -75,9 +78,9 @@ export default function AccessClawPage() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {[
-            { label: 'Total', val: stats?.total_findings ?? '\u2014', c: 'text-amber-400 bg-amber-900/20 border-amber-800' },
-            { label: 'Critical', val: stats?.by_severity?.critical ?? '\u2014', c: 'text-red-400 bg-red-900/20 border-red-800' },
-            { label: 'MFA Gaps', val: stats?.mfa_gaps ?? '\u2014', c: 'text-orange-400 bg-orange-900/20 border-orange-800' },
+            { label: 'Total', val: totalFindings, c: 'text-amber-400 bg-amber-900/20 border-amber-800' },
+            { label: 'Critical', val: criticalFindings, c: 'text-red-400 bg-red-900/20 border-red-800' },
+            { label: 'MFA Gaps', val: mfaGaps, c: 'text-orange-400 bg-orange-900/20 border-orange-800' },
             { label: 'Providers', val: `${configured}/${providers.length}`, c: configured > 0 ? 'text-green-400 bg-green-900/20 border-green-800' : 'text-gray-400 bg-gray-900/20 border-gray-800' },
           ].map(({ label, val, c }) => (
             <div key={label} className={`px-4 py-2 rounded-xl border text-center ${c}`}>
@@ -180,7 +183,7 @@ export default function AccessClawPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-xs font-medium ${STATUS_STYLE[f.status] ?? 'text-gray-400'}`}>{f.status}</span>
+                    <span className={`text-xs font-medium ${STATUS_STYLE[String(f.status).toLowerCase()] ?? 'text-gray-400'}`}>{String(f.status).toLowerCase()}</span>
                     {isOpen ? <ChevronDown className="w-4 h-4" style={{ color: 'var(--rc-text-3)' }} /> : <ChevronRight className="w-4 h-4" style={{ color: 'var(--rc-text-3)' }} />}
                   </div>
                 </button>

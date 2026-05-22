@@ -15,6 +15,22 @@ from app.schemas.finding import FindingCreate, FindingRead, FindingUpdate
 router = APIRouter(prefix="/findings", tags=["Findings — Universal"])
 
 
+def _parse_severity(value: str) -> FindingSeverity:
+    try:
+        return FindingSeverity(value)
+    except ValueError:
+        allowed = ", ".join(s.value for s in FindingSeverity)
+        raise HTTPException(status_code=400, detail=f"Invalid severity. Allowed values: {allowed}")
+
+
+def _parse_status(value: str) -> FindingStatus:
+    try:
+        return FindingStatus(value)
+    except ValueError:
+        allowed = ", ".join(s.value for s in FindingStatus)
+        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed values: {allowed}")
+
+
 @router.get("", response_model=list[FindingRead])
 async def list_findings(
     claw: Optional[str] = Query(None, description="Filter by claw name (e.g. cloudclaw)"),
@@ -34,9 +50,9 @@ async def list_findings(
     if provider:
         stmt = stmt.where(Finding.provider == provider)
     if severity:
-        stmt = stmt.where(Finding.severity == FindingSeverity(severity))
+        stmt = stmt.where(Finding.severity == _parse_severity(severity))
     if status:
-        stmt = stmt.where(Finding.status == FindingStatus(status))
+        stmt = stmt.where(Finding.status == _parse_status(status))
     if search:
         stmt = stmt.where(Finding.title.ilike(f"%{search}%"))
 
@@ -104,7 +120,12 @@ async def update_finding(
     db: AsyncSession = Depends(get_db),
 ):
     """Update finding status or remediation_effort."""
-    result = await db.execute(select(Finding).where(Finding.id == UUID(finding_id)))
+    try:
+        parsed_id = UUID(finding_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid finding id")
+
+    result = await db.execute(select(Finding).where(Finding.id == parsed_id))
     finding = result.scalar_one_or_none()
     if not finding:
         raise HTTPException(status_code=404, detail="Finding not found")

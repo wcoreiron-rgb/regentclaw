@@ -15,13 +15,11 @@ Usage:
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
+from starlette.requests import HTTPConnection
 
 from app.core.config import settings
 from app.core.security import decode_access_token
-
-_bearer = HTTPBearer(auto_error=False)
 
 # Synthetic admin used in dev/debug bypass
 _DEV_USER = {
@@ -33,19 +31,33 @@ _DEV_USER = {
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    connection: HTTPConnection,
 ) -> dict:
     """
     Resolve the current user from a Bearer JWT.
 
     In DEBUG mode (settings.DEBUG = True) this always returns a synthetic admin
     so that local development and all existing tests work without credentials.
+
+    This dependency is installed globally on the FastAPI app, so it must support
+    both normal HTTP requests and WebSocket upgrades. FastAPI's HTTPBearer helper
+    only accepts Request objects, which breaks WebSocket routes during dependency
+    resolution.
     """
     if settings.DEBUG:
         return _DEV_USER
 
-    # Production path — require a valid Bearer token
-    if not credentials:
+    auth_header = connection.headers.get("authorization", "")
+    token = ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+
+    # WebSocket clients can pass ?token=<jwt>, because browser WebSocket
+    # constructors cannot set arbitrary Authorization headers.
+    if not token:
+        token = connection.query_params.get("token", "")
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -53,7 +65,7 @@ async def get_current_user(
         )
 
     try:
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(token)
         sub: str = payload.get("sub", "")
         if not sub:
             raise ValueError("empty sub")
