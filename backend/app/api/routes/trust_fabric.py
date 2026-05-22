@@ -1,0 +1,276 @@
+"""Trust Fabric routes — runtime enforcement and AGT checks."""
+from __future__ import annotations
+
+import json
+import uuid
+from pathlib import Path
+from typing import Any, Optional
+
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.models.connector import Connector, ConnectorRisk, ConnectorStatus
+from app.models.event import Event
+from app.models.identity import Identity, IdentityStatus, IdentityType
+from app.models.module import Module, ModuleStatus
+from app.models.policy import Policy, PolicyAction, PolicyScope
+from app.trust_fabric import ActionRequest, block_connector, enforce, isolate_module, suspend_identity
+from app.trust_fabric.agt_bridge import agt_status, audit_prompt, scan_requirements
+
+router = APIRouter(prefix="/trust-fabric", tags=["Trust Fabric"])
+
+
+class TrustActionPayload(BaseModel):
+    module: str = Field(default="trust_fabric", max_length=64)
+    actor_id: str = Field(default="portal-user", max_length=256)
+    actor_name: str = Field(default="Portal User", max_length=255)
+    actor_type: str = Field(default="human", max_length=64)
+    action: str = Field(default="read_status", max_length=128)
+    target: Optional[str] = Field(default="trust-fabric", max_length=512)
+    target_type: Optional[str] = Field(default="module", max_length=64)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class PromptAuditPayload(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=12000)
+
+
+def _requirements_path() -> str:
+    """Find requirements.txt in local dev and container layouts."""
+    backend_root = Path(__file__).resolve().parents[3]
+    candidates = [
+        backend_root / "requirements.txt",
+        Path("/app/requirements.txt"),
+        Path.cwd() / "requirements.txt",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(candidates[0])
+
+
+def _decision_payload(decision) -> dict[str, Any]:
+    return {
+        "allowed": decision.allowed,
+        "outcome": decision.outcome.value,
+        "risk_score": decision.risk_score,
+        "severity": decision.severity.value,
+        "policy_name": decision.policy_name,
+        "reason": decision.reason,
+        "anomalies": decision.anomalies,
+    }
+
+
+@router.get("/status", summary="Trust Fabric runtime and AGT status")
+async def get_trust_fabric_status(db: AsyncSession = Depends(get_db)):
+    agt = agt_status()
+    supply_chain = scan_requirements(_requirements_path())
+
+    recent_result = await db.execute(select(Event).order_by(desc(Event.timestamp)).limit(5))
+    recent_decisions = [
+        {
+            "id": str(event.id),
+            "timestamp": event.timestamp.isoformat(),
+            "module": event.source_module,
+            "actor": event.actor_name,
+            "action": event.action,
+            "target": event.target,
+            "outcome": event.outcome.value,
+            "severity": event.severity.value,
+            "risk_score": event.risk_score,
+            "policy_name": event.policy_name,
+            "is_anomaly": event.is_anomaly,
+        }
+        for event in recent_result.scalars().all()
+    ]
+
+    return {
+        "runtime": {
+            "available": True,
+            "engine": "RegentClaw deterministic policy engine",
+            "checks": [
+                "identity",
+                "policy",
+                "anomaly",
+                "risk_scoring",
+                "audit_log",
+            ],
+        },
+        "agt": agt,
+        "supply_chain": {
+            "is_safe": supply_chain.is_safe,
+            "risk_score": supply_chain.risk_score,
+            "issues": supply_chain.issues,
+            "typosquatting_hits": supply_chain.typosquatting_hits,
+            "outdated_packages": supply_chain.outdated_packages,
+            "agt_used": supply_chain.agt_used,
+            "requirements_path": _requirements_path(),
+        },
+        "recent_decisions": recent_decisions,
+    }
+
+
+@router.post("/evaluate", summary="Evaluate an action through Trust Fabric")
+async def evaluate_trust_action(
+    payload: TrustActionPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    action_request = ActionRequest(**payload.model_dump())
+    decision = await enforce(db, action_request, ip_address=request.client.host if request.client else None)
+    return _decision_payload(decision)
+
+
+@router.post("/prompt-audit", summary="Run AGT prompt defense audit")
+async def run_prompt_audit(payload: PromptAuditPayload):
+    result = audit_prompt(payload.prompt)
+    return {
+        "is_injection_risk": result.is_injection_risk,
+        "risk_score": result.risk_score,
+        "findings": result.findings,
+        "vectors_flagged": result.vectors_flagged,
+        "recommendation": result.recommendation,
+        "agt_used": result.agt_used,
+    }
+
+
+@router.post("/probe", summary="Run allow/block Trust Fabric smoke probe")
+async def run_trust_fabric_probe(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    allow_request = ActionRequest(
+        module="trust_fabric",
+        actor_id="trust-probe-user",
+        actor_name="Trust Probe",
+        actor_type="human",
+        action="read_status",
+        target="trust-fabric",
+        target_type="module",
+        context={"probe": True, "expected": "allow"},
+    )
+    allow_decision = await enforce(db, allow_request, ip_address=request.client.host if request.client else None)
+
+    deny_policy = Policy(
+        name="Trust Fabric Probe: block shell execution",
+        description="Temporary smoke-test policy created by /trust-fabric/probe.",
+        is_active=True,
+        priority=1,
+        scope=PolicyScope.GLOBAL,
+        condition_json=json.dumps({"field": "action", "op": "eq", "value": "shell_exec"}),
+        action=PolicyAction.DENY,
+        created_by="trust-fabric-probe",
+    )
+    db.add(deny_policy)
+    await db.commit()
+
+    try:
+        block_request = ActionRequest(
+            module="trust_fabric",
+            actor_id="trust-probe-agent",
+            actor_name="Trust Probe Agent",
+            actor_type="agent",
+            action="shell_exec",
+            target="production-secrets",
+            target_type="credential_store",
+            context={"probe": True, "expected": "block", "risk_level": "critical"},
+        )
+        block_decision = await enforce(db, block_request, ip_address=request.client.host if request.client else None)
+    finally:
+        await db.delete(deny_policy)
+        await db.commit()
+
+    return {
+        "allow": _decision_payload(allow_decision),
+        "block": _decision_payload(block_decision),
+        "passed": allow_decision.allowed and not block_decision.allowed,
+    }
+
+
+@router.post("/containment-probe", summary="Run non-destructive containment smoke probe")
+async def run_containment_probe(db: AsyncSession = Depends(get_db)):
+    probe_id = uuid.uuid4().hex[:12]
+    module = Module(
+        name=f"trust-probe-module-{probe_id}",
+        display_name="Trust Probe Module",
+        description="Temporary module created for Trust Fabric containment probe.",
+        status=ModuleStatus.ACTIVE,
+    )
+    identity = Identity(
+        name=f"Trust Probe Identity {probe_id}",
+        type=IdentityType.AGENT,
+        status=IdentityStatus.ACTIVE,
+        description="Temporary identity created for Trust Fabric containment probe.",
+    )
+    connector = Connector(
+        name=f"Trust Probe Connector {probe_id}",
+        connector_type="trust_probe",
+        description="Temporary connector created for Trust Fabric containment probe.",
+        status=ConnectorStatus.APPROVED,
+        risk_level=ConnectorRisk.LOW,
+        category="Trust Fabric",
+    )
+    db.add_all([module, identity, connector])
+    await db.commit()
+    await db.refresh(module)
+    await db.refresh(identity)
+    await db.refresh(connector)
+
+    try:
+        module_ok = await isolate_module(
+            db,
+            module.name,
+            "Trust Fabric containment probe",
+            "trust-fabric-probe",
+        )
+        identity_ok = await suspend_identity(
+            db,
+            identity.id,
+            "Trust Fabric containment probe",
+            "trust-fabric-probe",
+        )
+        connector_ok = await block_connector(
+            db,
+            connector.id,
+            "Trust Fabric containment probe",
+            "trust-fabric-probe",
+        )
+
+        await db.refresh(module)
+        await db.refresh(identity)
+        await db.refresh(connector)
+
+        results = {
+            "isolate_module": {
+                "executed": module_ok,
+                "target": module.name,
+                "status": module.status.value,
+                "passed": module_ok and module.status == ModuleStatus.QUARANTINED,
+            },
+            "suspend_identity": {
+                "executed": identity_ok,
+                "target": str(identity.id),
+                "status": identity.status.value,
+                "passed": identity_ok and identity.status == IdentityStatus.SUSPENDED,
+            },
+            "block_connector": {
+                "executed": connector_ok,
+                "target": str(connector.id),
+                "status": connector.status.value,
+                "passed": connector_ok and connector.status == ConnectorStatus.BLOCKED,
+            },
+        }
+    finally:
+        await db.delete(connector)
+        await db.delete(module)
+        await db.delete(identity)
+        await db.commit()
+
+    return {
+        "passed": all(result["passed"] for result in results.values()),
+        "results": results,
+        "cleanup": "temporary probe records removed",
+    }

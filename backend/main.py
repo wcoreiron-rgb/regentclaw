@@ -56,6 +56,7 @@ from app.api.routes.profiles import router as profiles_router
 from app.api.routes.external_agents import router as external_agents_router
 from app.api.routes.ws import router as ws_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.trust_fabric import router as trust_fabric_router
 from app.claws.arcclaw.routes import router as arcclaw_router
 from app.claws.identityclaw.routes import router as identityclaw_router
 from app.claws.cloudclaw.routes import router as cloudclaw_router
@@ -148,6 +149,7 @@ app.include_router(profiles_router, prefix=PREFIX)
 app.include_router(external_agents_router, prefix=PREFIX)
 app.include_router(ws_router, prefix=PREFIX)   # WebSocket — no HTTP prefix stripping needed
 app.include_router(auth_router, prefix=PREFIX)
+app.include_router(trust_fabric_router, prefix=PREFIX)
 app.include_router(arcclaw_router, prefix=PREFIX)
 app.include_router(identityclaw_router, prefix=PREFIX)
 app.include_router(cloudclaw_router, prefix=PREFIX)

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Shield, AlertTriangle, CheckCircle, Eye, Clock,
   Zap, Lock, RefreshCw, ChevronDown, ChevronRight, Users, X,
@@ -62,10 +62,10 @@ export default function AutonomyPage() {
   const [bulkMode, setBulkMode]         = useState('');
   const [expandedClaws, setExpandedClaws] = useState<Set<string>>(new Set());
   const [toasts, setToasts]             = useState<Toast[]>([]);
-  let toastId = 0;
+  const toastId = useRef(0);
 
   const toast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    const id = ++toastId;
+    const id = ++toastId.current;
     setToasts(t => [...t, { id, message, type }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000);
   }, []);
