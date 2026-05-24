@@ -6,7 +6,7 @@ import {
   TrendingUp, ChevronRight, Radio,
 } from 'lucide-react';
 import RiskBadge from '@/components/RiskBadge';
-import { getDashboard, getConnectors, getPolicies, getEvents } from '@/lib/api';
+import { getDashboard, getConnectors, getPolicies, getEvents, getFindingsStats } from '@/lib/api';
 
 // ─── All 23 Claw modules ──────────────────────────────────────────────────────
 
@@ -99,6 +99,7 @@ export default function CoreOSPage() {
   const [connectors, setConnectors]   = useState<any[]>([]);
   const [policies, setPolicies]       = useState<any[]>([]);
   const [events, setEvents]           = useState<any[]>([]);
+  const [findingsStats, setFindingsStats] = useState<any>(null);
   const [loading, setLoading]         = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -108,16 +109,18 @@ export default function CoreOSPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [dash, conns, pols, evts] = await Promise.all([
+      const [dash, conns, pols, evts, findingStats] = await Promise.all([
         getDashboard().catch(() => null),
         getConnectors().catch(() => []),
         getPolicies().catch(() => []),
         getEvents({ limit: '8', sort: 'desc' }).catch(() => []),
+        getFindingsStats().catch(() => null),
       ]);
       setDashboard(dash);
       setConnectors(conns ?? []);
       setPolicies(pols ?? []);
       setEvents(evts ?? []);
+      setFindingsStats(findingStats);
       setLastRefresh(new Date());
     } finally {
       setLoading(false);
@@ -127,14 +130,22 @@ export default function CoreOSPage() {
   useEffect(() => { load(); }, [load]);
 
   // Derived stats
-  const activeConnectors   = connectors.filter(c => c.status === 'active').length;
+  const approvedConnectorStatuses = new Set(['approved', 'active']);
+  const activeConnectors   = connectors.filter(c => approvedConnectorStatuses.has(String(c.status).toLowerCase())).length;
   const pendingConnectors  = connectors.filter(c => c.status === 'pending').length;
-  const alertConnectors    = connectors.filter(c => ALERT_CONNECTOR_TYPES.includes(c.connector_type?.toLowerCase()));
+  const alertConnectors    = connectors.filter(c => (
+    ALERT_CONNECTOR_TYPES.includes(c.connector_type?.toLowerCase())
+    && approvedConnectorStatuses.has(String(c.status).toLowerCase())
+  ));
   const activePolicies     = policies.filter(p => p.is_active).length;
-  const totalFindings      = dashboard?.total_findings   ?? '—';
+  const totalFindings      = findingsStats?.open_count
+    ?? dashboard?.total_findings
+    ?? dashboard?.high_risk_events
+    ?? '—';
   const blockedActions     = dashboard?.blocked_actions_24h ?? '—';
   const riskScore          = dashboard?.platform_risk_score ?? null;
   const pendingApprovals   = dashboard?.pending_approvals ?? '—';
+  const clawCount          = MODULES.filter(m => m.claw !== 'coreos').length;
 
   const riskColor = riskScore === null ? 'text-gray-400'
     : riskScore >= 75 ? 'text-red-400'
@@ -221,9 +232,9 @@ export default function CoreOSPage() {
           valueClass="text-yellow-400"
         />
         <StatCard
-          label="Claw Modules"
+          label="Registered Modules"
           value={String(MODULES.length)}
-          sub="23 active — all wired"
+          sub={`CoreOS + ${clawCount} claws`}
           icon={<Activity className="w-5 h-5 text-green-400" />}
           valueClass="text-green-400"
         />
@@ -235,7 +246,7 @@ export default function CoreOSPage() {
           <h2 className="font-semibold text-white flex items-center gap-2">
             <Cpu className="w-4 h-4 text-cyan-400" /> Module Registry
           </h2>
-          <span className="text-xs text-gray-500">{MODULES.length} modules registered</span>
+          <span className="text-xs text-gray-500">CoreOS + {clawCount} claws registered</span>
         </div>
 
         {/* Phase 1 */}
@@ -292,7 +303,8 @@ export default function CoreOSPage() {
             <p className="text-gray-600 text-xs mt-1">Every integration must be registered here before use. Plugging in a connector auto-triggers a scan sweep.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-gray-800 text-gray-500 text-xs">
                 <th className="px-6 py-3 text-left">Name</th>
@@ -324,6 +336,7 @@ export default function CoreOSPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -451,7 +464,8 @@ export default function CoreOSPage() {
         {events.length === 0 ? (
           <p className="px-6 py-6 text-gray-500 text-sm">No events yet — events appear here as claws scan and policies evaluate.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-gray-800 text-gray-500 text-xs">
                 <th className="px-6 py-3 text-left">Time</th>
@@ -477,6 +491,7 @@ export default function CoreOSPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

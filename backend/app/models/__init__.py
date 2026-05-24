@@ -7,6 +7,7 @@ from app.models.policy_pack import PolicyPack
 from app.models.workflow import Workflow, WorkflowRun
 from app.models.audit import AuditLog
 from app.models.finding import Finding, FindingSeverity, FindingStatus, RemediationEffort
+from app.models.swarm import SwarmJob, SwarmTask, SwarmJobStatus, SwarmTaskStatus
 
 __all__ = [
     "Identity", "IdentityType", "IdentityStatus",
@@ -18,4 +19,5 @@ __all__ = [
     "Workflow", "WorkflowRun",
     "AuditLog",
     "Finding", "FindingSeverity", "FindingStatus", "RemediationEffort",
+    "SwarmJob", "SwarmTask", "SwarmJobStatus", "SwarmTaskStatus",
 ]
