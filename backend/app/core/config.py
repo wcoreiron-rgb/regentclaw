@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://frontend:3000"]
 
+    # AGT provider feature flags (opt-in rollout)
+    AGT_VERSION_MODE: str = "v1_compat"
+    AGT_ENABLE_AGENT_MESH: bool = False
+    AGT_ENABLE_E2E_MESSAGING: bool = False
+    AGT_ENABLE_MCP_GATEWAY: bool = False
+    AGT_ENABLE_SHADOW_DISCOVERY: bool = False
+
     class Config:
         env_file = ".env"
 

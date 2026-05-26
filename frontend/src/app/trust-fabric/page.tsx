@@ -28,6 +28,7 @@ const PRINCIPLES = [
 
 export default function TrustFabricPage() {
   const [agtStatus, setAgtStatus] = useState<any>(null);
+  const [multiAgentStatus, setMultiAgentStatus] = useState<any>(null);
   const [status, setStatus] = useState<any>(null);
   const [probe, setProbe] = useState<any>(null);
   const [containmentProbe, setContainmentProbe] = useState<any>(null);
@@ -41,8 +42,10 @@ export default function TrustFabricPage() {
     setError(null);
     try {
       const data = await apiFetch<any>('/trust-fabric/status');
+      const ma = await apiFetch<any>('/trust-fabric/multi-agent/status');
       setStatus(data);
       setAgtStatus(data.agt);
+      setMultiAgentStatus(ma);
     } catch (err) {
       console.error(err);
       setError('Trust Fabric status API failed.');
@@ -191,6 +194,13 @@ export default function TrustFabricPage() {
           <p className="text-gray-300 font-medium mb-1">Architecture Note</p>
           <p>{agtStatus.note}</p>
           <p className="mt-2 text-regent-400">Runtime enforcement: <span className="text-white">{agtStatus.runtime_enforcement}</span></p>
+          {multiAgentStatus && (
+            <p className="mt-2 text-blue-300">
+              Multi-agent: <span className="text-white">{multiAgentStatus.enabled ? 'Enabled' : 'Disabled (opt-in)'}</span>
+              {' · '}Mesh: <span className="text-white">{multiAgentStatus.agent_mesh_enabled ? 'On' : 'Off'}</span>
+              {' · '}E2E: <span className="text-white">{multiAgentStatus.encrypted_messaging_enabled ? 'On' : 'Off'}</span>
+            </p>
+          )}
         </div>
       )}
 

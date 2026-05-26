@@ -12,13 +12,14 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.fabric.providers.agt import get_agt_adapter
 from app.models.connector import Connector, ConnectorRisk, ConnectorStatus
 from app.models.event import Event
 from app.models.identity import Identity, IdentityStatus, IdentityType
 from app.models.module import Module, ModuleStatus
 from app.models.policy import Policy, PolicyAction, PolicyScope
 from app.trust_fabric import ActionRequest, block_connector, enforce, isolate_module, suspend_identity
-from app.trust_fabric.agt_bridge import agt_status, audit_prompt, scan_requirements
+from app.trust_fabric.agt_bridge import audit_prompt, scan_requirements
 
 router = APIRouter(prefix="/trust-fabric", tags=["Trust Fabric"])
 
@@ -36,6 +37,11 @@ class TrustActionPayload(BaseModel):
 
 class PromptAuditPayload(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=12000)
+
+
+class MCPScanPayload(BaseModel):
+    target_type: str = Field(default="skill", pattern="^(skill|mcp|connector)$")
+    path: str = Field(..., min_length=1, max_length=1024)
 
 
 def _requirements_path() -> str:
@@ -66,7 +72,14 @@ def _decision_payload(decision) -> dict[str, Any]:
 
 @router.get("/status", summary="Trust Fabric runtime and AGT status")
 async def get_trust_fabric_status(db: AsyncSession = Depends(get_db)):
-    agt = agt_status()
+    adapter = get_agt_adapter()
+    agt = adapter.status()
+    bridge = agt.get("bridge", {})
+    # Backward compatibility for existing UI/tests that read AGT fields
+    agt_view = {
+        **bridge,
+        **{k: v for k, v in agt.items() if k != "bridge"},
+    }
     supply_chain = scan_requirements(_requirements_path())
 
     recent_result = await db.execute(select(Event).order_by(desc(Event.timestamp)).limit(5))
@@ -99,7 +112,7 @@ async def get_trust_fabric_status(db: AsyncSession = Depends(get_db)):
                 "audit_log",
             ],
         },
-        "agt": agt,
+        "agt": agt_view,
         "supply_chain": {
             "is_safe": supply_chain.is_safe,
             "risk_score": supply_chain.risk_score,
@@ -111,6 +124,30 @@ async def get_trust_fabric_status(db: AsyncSession = Depends(get_db)):
         },
         "recent_decisions": recent_decisions,
     }
+
+
+@router.get("/multi-agent/status", summary="Multi-agent capability status")
+async def get_multi_agent_status():
+    adapter = get_agt_adapter()
+    status = adapter.status()
+    features = status["features"]
+    return {
+        "provider": "agt",
+        "enabled": bool(features["enable_agent_mesh"] or features["enable_e2e_messaging"]),
+        "agent_mesh_enabled": features["enable_agent_mesh"],
+        "encrypted_messaging_enabled": features["enable_e2e_messaging"],
+        "compatibility_mode": features["version_mode"],
+        "rollout_note": "Feature-flagged rollout via Regent Fabric adapter boundary.",
+    }
+
+
+@router.post("/mcp/scan", summary="Scan MCP/skill/connector path through AGT scanner")
+async def scan_mcp_skill_path(payload: MCPScanPayload):
+    adapter = get_agt_adapter()
+    result = adapter.scan_path(payload.path)
+    result["target_type"] = payload.target_type
+    result["mcp_gateway_enabled"] = adapter.flags.enable_mcp_gateway
+    return result
 
 
 @router.post("/evaluate", summary="Evaluate an action through Trust Fabric")

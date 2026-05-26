@@ -96,6 +96,18 @@ Key endpoints:
 5. **Every risk is containable** — Isolation, revocation, kill switch
 6. **Every module is governed** — Plug-and-play = plug-and-governed
 
+## AGT + Multi-Agent Governance (New)
+
+RegentClaw now exposes AGT rollout through a provider boundary instead of direct Claw coupling:
+
+- Adapter boundary: `backend/app/fabric/providers/agt/`
+- Feature flags (opt-in): `AGT_ENABLE_MCP_GATEWAY`, `AGT_ENABLE_E2E_MESSAGING`, `AGT_ENABLE_AGENT_MESH`, `AGT_ENABLE_SHADOW_DISCOVERY`
+- Trust Fabric APIs:
+  - `GET /api/v1/trust-fabric/multi-agent/status`
+  - `POST /api/v1/trust-fabric/mcp/scan`
+
+Detailed rollout plan: `docs/agt-3.2-regentclaw-plan.md`
+
 ## Claw Modules (24 total)
 
 | Module | Description |

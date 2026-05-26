@@ -11,6 +11,7 @@ import {
   Bot, GitMerge, Radar, ClipboardCheck, Lock, Handshake,
   GitBranch, Settings, RefreshCcw, Network, CalendarClock, Layers, Workflow, Webhook, Sparkles,
   MessageSquare, ShoppingBag, PanelLeftClose, PanelLeftOpen, ShieldAlert,
+  Users2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from '@/components/ThemeProvider';
@@ -45,6 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Agents',           href: '/agents',           icon: Bot,              tag: 'AI Ops' },
       { label: 'Schedules',        href: '/schedules',        icon: CalendarClock,    tag: 'Automation' },
       { label: 'Orchestrations',   href: '/orchestrations',   icon: Workflow,         tag: 'Workflows' },
+      { label: 'Swarm',            href: '/swarm',            icon: Users2,           tag: 'Parallel' },
       { label: 'Triggers',         href: '/triggers',         icon: Webhook,          tag: 'Reactive' },
       { label: 'Autonomy',         href: '/autonomy',         icon: Shield,           tag: 'Governance' },
       { label: 'Remediation',      href: '/remediation',      icon: ShieldAlert,      tag: 'Auto-Fix' },

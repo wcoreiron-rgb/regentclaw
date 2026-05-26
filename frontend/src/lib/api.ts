@@ -132,6 +132,20 @@ export const getRunReplayById = (runId: string) =>
 export const getRecentRuns = (limit = 20) =>
   apiFetch<any[]>(`/orchestrations/runs/recent?limit=${limit}`);
 
+// Swarm
+export const createSwarmJob = (body: object) =>
+  apiFetch<any>('/swarm/jobs', { method: 'POST', body: JSON.stringify(body) });
+export const getSwarmJobs = (params?: Record<string, string>) => {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+  return apiFetch<any[]>(`/swarm/jobs${qs}`);
+};
+export const getSwarmJob = (id: string) => apiFetch<any>(`/swarm/jobs/${id}`);
+export const getSwarmTasks = (id: string) => apiFetch<any[]>(`/swarm/jobs/${id}/tasks`);
+export const cancelSwarmJob = (id: string) =>
+  apiFetch<any>(`/swarm/jobs/${id}/cancel`, { method: 'POST' });
+export const approveSwarmJob = (id: string) =>
+  apiFetch<any>(`/swarm/jobs/${id}/approve`, { method: 'POST' });
+
 // Policy Packs
 export const getPolicyPacks = () => apiFetch<any[]>('/policy-packs');
 
