@@ -7,13 +7,15 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.fabric.providers.agt import get_agt_adapter
 from app.models.skill_pack import SkillPack
+from app.trust_fabric import ActionRequest, enforce
 
 logger = logging.getLogger("regentclaw.skill_packs")
 router = APIRouter(prefix="/skill-packs", tags=["Skill Packs"])
@@ -51,6 +53,7 @@ class SkillPackUpdate(BaseModel):
 
 class InstallRequest(BaseModel):
     installed_by: str = "platform_admin"
+    scan_path: str | None = None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -204,13 +207,68 @@ async def delete_skill_pack(pack_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{pack_id}/install", summary="Install a skill pack")
-async def install_skill_pack(pack_id: str, body: InstallRequest, db: AsyncSession = Depends(get_db)):
+async def install_skill_pack(
+    pack_id: str,
+    body: InstallRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
     from uuid import UUID
     pack = await db.get(SkillPack, UUID(pack_id))
     if not pack:
         raise HTTPException(status_code=404, detail="Skill pack not found")
     if pack.is_installed:
         raise HTTPException(status_code=400, detail="Already installed")
+
+    # 1) Policy-govern the install action via Trust Fabric
+    try:
+        manifest = json.loads(pack.manifest_json or "{}")
+    except Exception:
+        manifest = {}
+    policy_decision = await enforce(
+        db=db,
+        request=ActionRequest(
+            module="skillclaw",
+            actor_id=body.installed_by,
+            actor_name=body.installed_by,
+            actor_type="human",
+            action="install_skill_pack",
+            target=pack.slug,
+            target_type="skill_pack",
+            context={
+                "pack_risk_level": pack.risk_level,
+                "requires_approval": pack.requires_approval,
+                "skill_count": pack.skill_count,
+                "scope_permissions": manifest.get("scope_permissions", []),
+            },
+        ),
+        ip_address=request.client.host if request.client else None,
+    )
+    if not policy_decision.allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Skill pack install blocked by Trust Fabric policy.",
+                "policy": policy_decision.policy_name,
+                "reason": policy_decision.reason,
+                "outcome": policy_decision.outcome.value,
+                "risk_score": policy_decision.risk_score,
+            },
+        )
+
+    # 2) Optional AGT MCP gateway scan at install time
+    adapter = get_agt_adapter()
+    gateway_scan = None
+    if adapter.flags.enable_mcp_gateway and body.scan_path:
+        gateway_scan = adapter.scan_path(body.scan_path)
+        if gateway_scan.get("critical_count", 0) > 0 or gateway_scan.get("risk_score", 0.0) >= 50.0:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Skill pack install blocked by MCP Security Gateway scan.",
+                    "scan": gateway_scan,
+                },
+            )
 
     pack.is_installed = True
     pack.installed_at = datetime.utcnow()
@@ -219,7 +277,15 @@ async def install_skill_pack(pack_id: str, body: InstallRequest, db: AsyncSessio
     await db.commit()
 
     logger.info("Skill pack installed: %s v%s by %s", pack.slug, pack.version, body.installed_by)
-    return _pack_out(pack)
+    payload = _pack_out(pack)
+    payload["install_policy"] = {
+        "outcome": policy_decision.outcome.value,
+        "risk_score": policy_decision.risk_score,
+        "policy_name": policy_decision.policy_name,
+    }
+    if gateway_scan is not None:
+        payload["gateway_scan"] = gateway_scan
+    return payload
 
 
 @router.post("/{pack_id}/uninstall", summary="Uninstall a skill pack")

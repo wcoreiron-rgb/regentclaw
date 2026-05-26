@@ -8,6 +8,7 @@ import {
 import {
   getSkillPacks, installSkillPack, uninstallSkillPack,
   activateSkillPack, deactivateSkillPack, getSkillPackStats,
+  ApiError,
 } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -76,15 +77,29 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 function PackCard({ pack, onAction }: { pack: SkillPack; onAction: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [scanPath, setScanPath] = useState('');
+  const [installResult, setInstallResult] = useState<any | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const Icon = CATEGORY_ICONS[pack.category ?? 'default'] ?? Package;
   const riskClass = RISK_COLORS[pack.risk_level] ?? RISK_COLORS.low;
 
   const doAction = async (action: () => Promise<any>) => {
     setBusy(action.name || 'working');
+    setActionError(null);
     try {
-      await action();
+      const result = await action();
+      if (result?.install_policy || result?.gateway_scan) setInstallResult(result);
       onAction();
+    } catch (err: any) {
+      if (err instanceof ApiError && err.data && typeof err.data === 'object') {
+        const detail = (err.data as any).detail;
+        if (typeof detail === 'string') setActionError(detail);
+        else if (detail?.message) setActionError(detail.message);
+        else setActionError(`Request failed (${err.status})`);
+      } else {
+        setActionError(err?.message || 'Request failed');
+      }
     } finally {
       setBusy(null);
     }
@@ -154,7 +169,7 @@ function PackCard({ pack, onAction }: { pack: SkillPack; onAction: () => void })
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-800">
           {!pack.is_installed && (
             <button
-              onClick={() => doAction(() => installSkillPack(pack.id))}
+              onClick={() => doAction(() => installSkillPack(pack.id, 'platform_admin', scanPath || undefined))}
               disabled={!!busy}
               className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
             >
@@ -204,6 +219,44 @@ function PackCard({ pack, onAction }: { pack: SkillPack; onAction: () => void })
       {/* Expanded manifest */}
       {expanded && (
         <div className="border-t border-gray-800 px-5 py-4 space-y-4">
+          {!pack.is_installed && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Gateway Scan Path (Optional)</p>
+              <input
+                value={scanPath}
+                onChange={(e) => setScanPath(e.target.value)}
+                placeholder="backend/app/claws/identityclaw"
+                className="w-full px-3 py-2 rounded-lg bg-gray-950 border border-gray-800 text-gray-200 text-xs outline-none focus:border-cyan-700"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Used only when MCP gateway is enabled. High-risk scan results can block install.
+              </p>
+            </div>
+          )}
+
+          {installResult?.install_policy && (
+            <div className="rounded-lg border border-green-900 bg-green-950/20 px-3 py-2">
+              <p className="text-xs text-green-300">
+                Install Policy: {installResult.install_policy.outcome} · risk {installResult.install_policy.risk_score}
+              </p>
+              <p className="text-[11px] text-green-400/80">{installResult.install_policy.policy_name}</p>
+            </div>
+          )}
+
+          {installResult?.gateway_scan && (
+            <div className="rounded-lg border border-blue-900 bg-blue-950/20 px-3 py-2">
+              <p className="text-xs text-blue-300">
+                Gateway Scan: risk {installResult.gateway_scan.risk_score} · critical {installResult.gateway_scan.critical_count} · high {installResult.gateway_scan.high_count}
+              </p>
+            </div>
+          )}
+
+          {actionError && (
+            <div className="rounded-lg border border-red-900 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+              {actionError}
+            </div>
+          )}
+
           {/* Skills list */}
           {(pack.manifest.skills?.length ?? 0) > 0 && (
             <div>

@@ -272,9 +272,17 @@ export const updateSkillPack = (id: string, body: object) =>
   apiFetch<any>(`/skill-packs/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 export const deleteSkillPack = (id: string) =>
   apiFetch<void>(`/skill-packs/${id}`, { method: 'DELETE' });
-export const installSkillPack = (id: string, installedBy = 'platform_admin') =>
+export const installSkillPack = (
+  id: string,
+  installedBy = 'platform_admin',
+  scanPath?: string,
+) =>
   apiFetch<any>(`/skill-packs/${id}/install`, {
-    method: 'POST', body: JSON.stringify({ installed_by: installedBy }),
+    method: 'POST',
+    body: JSON.stringify({
+      installed_by: installedBy,
+      ...(scanPath ? { scan_path: scanPath } : {}),
+    }),
   });
 export const uninstallSkillPack = (id: string) =>
   apiFetch<any>(`/skill-packs/${id}/uninstall`, { method: 'POST' });

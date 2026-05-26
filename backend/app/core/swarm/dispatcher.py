@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.fabric.providers.agt import get_agt_adapter
 from app.models.swarm import SwarmTask, SwarmTaskStatus
 
 
@@ -64,6 +65,28 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
         "execution_time_ms": simulated_ms,
     }
 
+    adapter = get_agt_adapter()
+    secure_channel = adapter.send_secure_message(
+        sender=task.claw,
+        recipient="swarm_judge",
+        message_type="TASK_RESULT",
+        payload={
+            "task_id": str(task.id),
+            "swarm_job_id": str(task.swarm_job_id),
+            "severity": severity,
+            "risk_score": risk_score,
+        },
+    )
+    if secure_channel.get("enabled"):
+        output["secure_channel"] = secure_channel
+        output["policy_decisions"].append(
+            {
+                "action": "E2E_MESSAGE",
+                "outcome": secure_channel.get("status"),
+                "provider": secure_channel.get("provider"),
+            }
+        )
+
     task.status = SwarmTaskStatus.COMPLETED
     task.severity = severity
     task.confidence = confidence
@@ -73,4 +96,3 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
     task.completed_at = datetime.utcnow()
     await db.commit()
     return output
-
