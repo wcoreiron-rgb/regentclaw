@@ -1,0 +1,40 @@
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+model = "gpt-5.5"
+reasoning_effort = "medium"
+
+[approvals]
+trusted_commands = [
+  "git status",
+  "git diff",
+  "git log",
+  "cd frontend && npm run lint",
+  "cd frontend && npm run build",
+  "cd backend && pytest"
+]
+
+# Keep approvals strict for destructive commands.
+# Do not auto-trust commands that delete/reset/rewrite history.
+
+# Optional MCP placeholders (enable only when needed and configured):
+#
+# [mcp.servers.github]
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-github"]
+#
+# [mcp.servers.playwright]
+# command = "npx"
+# args = ["-y", "@playwright/mcp"]
+#
+# [mcp.servers.docs]
+# command = "npx"
+# args = ["-y", "@upstash/context7-mcp"]
+#
+# [mcp.servers.postgres]
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-postgres", "postgres://user:pass@host/db"]
+#
+# [mcp.servers.figma]
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-figma"]
+
