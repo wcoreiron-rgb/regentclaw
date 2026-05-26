@@ -215,6 +215,18 @@
       margin-top: 4px;
     }
 
+    .ship-note {
+      margin: 2rem auto 0;
+      max-width: 1200px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--text2);
+    }
+    .ship-note strong { color: var(--text); }
+
     /* ── SECTIONS ── */
     section { padding: 100px 2rem; }
     .section-inner { max-width: 1200px; margin: 0 auto; }
@@ -507,17 +519,21 @@
       <div class="stat-label">Security Claws</div>
     </div>
     <div class="stat">
-      <div class="stat-number">5</div>
-      <div class="stat-label">Execution Modes</div>
+      <div class="stat-number">6</div>
+      <div class="stat-label">Swarm Endpoints</div>
     </div>
     <div class="stat">
       <div class="stat-number">Zero Trust</div>
       <div class="stat-label">by Design</div>
     </div>
     <div class="stat">
-      <div class="stat-number">100%</div>
-      <div class="stat-label">Attributable</div>
+      <div class="stat-number">Sprint 3</div>
+      <div class="stat-label">Shipped</div>
     </div>
+  </div>
+  <div class="ship-note">
+    <strong>Latest shipped:</strong> AGT adapter boundary with rollout flags, Swarm jobs UI, Trust Fabric multi-agent and MCP scan APIs,
+    Skill Pack install policy enforcement, optional gateway <code>scan_path</code>, and feature-flagged E2E inter-claw message envelopes.
   </div>
 </div>
 
@@ -754,10 +770,11 @@
       </div>
       <div class="arch-col">
         <h3>Governance</h3>
-        <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">Microsoft AGT</div><div class="arch-item-text">PromptDefenseEvaluator for AI safety</div></div></div>
+        <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">AGT Adapter Boundary</div><div class="arch-item-text">Provider isolation under Regent Fabric</div></div></div>
+        <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">MCP Gateway Controls</div><div class="arch-item-text">Skill install scan + policy block path</div></div></div>
+        <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">E2E Messaging Flag Path</div><div class="arch-item-text">Inter-claw secure envelope metadata</div></div></div>
         <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">JWT Auth</div><div class="arch-item-text">Short-lived tokens with refresh rotation</div></div></div>
         <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">Zero Trust Policy Engine</div><div class="arch-item-text">Flexible rule evaluation per action</div></div></div>
-        <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">Behavioral Anomaly Detection</div><div class="arch-item-text">Continuous baseline monitoring</div></div></div>
         <div class="arch-item"><div class="arch-dot"></div><div><div class="arch-item-label">Immutable Audit Log</div><div class="arch-item-text">Full lineage for every decision</div></div></div>
       </div>
     </div>

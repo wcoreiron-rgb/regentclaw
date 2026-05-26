@@ -401,6 +401,7 @@
     <a class="sidebar-link" onclick="show('tf-policy')">Policy Engine</a>
     <a class="sidebar-link" onclick="show('tf-anomaly')">Anomaly Detection</a>
     <a class="sidebar-link" onclick="show('tf-modes')">Execution Modes</a>
+    <a class="sidebar-link" onclick="show('tf-agt')">AGT Rollout &amp; Swarm</a>
 
     <div class="sidebar-section-title">The Claw System</div>
     <a class="sidebar-link" onclick="show('claws-all')">All 24 Claws</a>
@@ -814,6 +815,61 @@ Content-Type: application/json
   <span class="c-key">"scope"</span>: <span class="c-str">"cloudclaw"</span>,
   <span class="c-key">"reason"</span>: <span class="c-str">"Active incident — suspected data exfiltration"</span>
 }</pre>
+    </div>
+
+    <!-- ─── TRUST FABRIC: AGT ROLLOUT & SWARM ─── -->
+    <div id="sec-tf-agt" class="doc-section">
+      <h1>AGT Rollout &amp; Swarm</h1>
+      <p class="lead">RegentClaw integrates AGT through a provider adapter boundary and feature flags. This allows staged rollout without coupling every claw directly to AGT internals.</p>
+
+      <h2>Adapter Boundary</h2>
+      <p>AGT integration is isolated under:</p>
+      <pre>backend/app/fabric/providers/agt/
+├── adapter.py
+├── version.py
+└── __init__.py</pre>
+      <p>Claws and API routes call Regent Fabric interfaces, not AGT SDK APIs directly.</p>
+
+      <h2>Feature Flags</h2>
+      <pre>AGT_VERSION_MODE=v1_compat
+AGT_ENABLE_AGENT_MESH=false
+AGT_ENABLE_E2E_MESSAGING=false
+AGT_ENABLE_MCP_GATEWAY=false
+AGT_ENABLE_SHADOW_DISCOVERY=false</pre>
+      <p>Flags are configured via <code>backend/.env</code>. Roll out one capability at a time.</p>
+
+      <h2>New Trust Fabric Endpoints</h2>
+      <div class="endpoint-row">
+        <span class="method method-get">GET</span>
+        <span class="endpoint-path">/api/v1/trust-fabric/multi-agent/status</span>
+        <span class="endpoint-desc">Reports AGT multi-agent / E2E flag state</span>
+      </div>
+      <div class="endpoint-row">
+        <span class="method method-post">POST</span>
+        <span class="endpoint-path">/api/v1/trust-fabric/mcp/scan</span>
+        <span class="endpoint-desc">Runs AGT-backed module/skill path scan</span>
+      </div>
+
+      <h2>Skill Pack Install Guardrails</h2>
+      <p>Skill Pack install now runs through Trust Fabric policy enforcement first, and optionally runs gateway scanning when enabled.</p>
+      <pre>POST /api/v1/skill-packs/{id}/install
+{
+  "installed_by": "platform_admin",
+  "scan_path": "backend/app/claws/identityclaw"
+}</pre>
+      <ul>
+        <li><strong>Policy deny</strong> blocks install with <code>403</code>.</li>
+        <li><strong>Gateway high risk</strong> blocks install with <code>400</code>.</li>
+        <li>Successful installs include <code>install_policy</code> and optional <code>gateway_scan</code> metadata.</li>
+      </ul>
+
+      <h2>Swarm + E2E Messaging Flag Path</h2>
+      <p>Swarm task execution now emits secure inter-claw handoff metadata when <code>AGT_ENABLE_E2E_MESSAGING=true</code>.</p>
+      <ul>
+        <li>Task output includes a <code>secure_channel</code> envelope and digest.</li>
+        <li><code>policy_decisions</code> includes <code>E2E_MESSAGE</code> outcome metadata.</li>
+        <li>When AGT is unavailable, the path remains deterministic with simulated encrypted envelope status.</li>
+      </ul>
     </div>
 
     <!-- ─── ALL 24 CLAWS ─── -->
