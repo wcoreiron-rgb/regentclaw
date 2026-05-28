@@ -10,42 +10,42 @@ import { apiFetch } from '@/lib/api';
 // ── Brand logos via Simple Icons CDN ─────────────────────────────────────────
 // Format: https://cdn.simpleicons.org/{slug}/{hex-color}
 
-const BRAND_LOGOS: Record<string, { slug: string; color: string; bg: string }> = {
+const BRAND_LOGOS: Record<string, { slug: string; color: string; bg: string; local?: string }> = {
   // Identity & Access
-  entra_id:       { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d' },
+  entra_id:       { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d', local: '/Entra-ID-logo.png' },
   okta:           { slug: 'okta',              color: '007dc1', bg: '#00243d' },
-  ping_identity:  { slug: 'pingidentity',      color: 'e1001a', bg: '#3d0007' },
-  auth0:          { slug: 'auth0',             color: 'eb5424', bg: '#3d1b0e' },
+  ping_identity:  { slug: 'pingidentity',      color: 'e1001a', bg: '#3d0007', local: '/ping-identity-logo.png' },
+  auth0:          { slug: 'auth0',             color: 'eb5424', bg: '#3d1b0e', local: '/auth0-logo.png' },
   cyberark:       { slug: 'cyberark',          color: 'e21a23', bg: '#3d0609' },
   hashicorp_vault:{ slug: 'vault',             color: 'ffcf25', bg: '#3d2e00' },
-  duo:            { slug: 'duo',               color: '6dc535', bg: '#1a3008' },
+  duo:            { slug: 'duo',               color: '6dc535', bg: '#1a3008', local: '/accounts-icon-duo-security-duo-security-logo-11563033627fbimdualw8.png' },
 
   // Security & SIEM
-  sentinel:       { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d' },
-  splunk:         { slug: 'splunk',            color: '65a637', bg: '#192b0e' },
-  qradar:         { slug: 'ibm',               color: '1f70c1', bg: '#0a2040' },
-  elastic:        { slug: 'elastic',           color: '00bfb3', bg: '#003330' },
+  sentinel:       { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d', local: '/icon-microsoft-sentinel.png' },
+  splunk:         { slug: 'splunk',            color: '65a637', bg: '#192b0e', local: '/Splunk.png' },
+  qradar:         { slug: 'ibm',               color: '1f70c1', bg: '#ffffff', local: '/ibm-qradar-logo.png' },
+  elastic:        { slug: 'elastic',           color: '00bfb3', bg: '#003330', local: '/elastic-logo.jpg' },
   datadog:        { slug: 'datadog',           color: '632ca6', bg: '#1e0d33' },
-  sumologic:      { slug: 'sumologic',         color: '000099', bg: '#00002e' },
+  sumologic:      { slug: 'sumologic',         color: '000099', bg: '#00002e', local: '/sumo-logic-logo.png' },
 
   // Endpoint & EDR
-  crowdstrike:    { slug: 'crowdstrike',       color: 'e8350b', bg: '#3d0e03' },
-  defender_endpoint: { slug: 'microsoftdefender', color: '00a4ef', bg: '#002f47' },
-  sentinelone:    { slug: 'sentinelone',       color: '6a3ec2', bg: '#1f1038' },
+  crowdstrike:    { slug: 'crowdstrike',       color: 'e8350b', bg: '#ffffff', local: '/crowdstrike-logo.png' },
+  defender_endpoint: { slug: 'microsoftdefender', color: '00a4ef', bg: '#ffffff', local: '/defender-endpoint-logo.png' },
+  sentinelone:    { slug: 'sentinelone',       color: '6a3ec2', bg: '#ffffff', local: '/SentinelOne.png' },
   carbonblack:    { slug: 'vmware',            color: '607078', bg: '#1a2023' },
-  tanium:         { slug: 'tanium',            color: '00b140', bg: '#00301a' },
+  tanium:         { slug: 'tanium',            color: '00b140', bg: '#ffffff', local: '/tanium-logo.png' },
 
   // Cloud & Infrastructure
-  aws_iam:        { slug: 'amazonaws',         color: 'ff9900', bg: '#3d2200' },
-  azure_arm:      { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d' },
-  gcp_iam:        { slug: 'googlecloud',       color: '4285f4', bg: '#0f2652' },
-  gcp_scc:        { slug: 'googlecloud',       color: '34a853', bg: '#0c2918' },
-  wiz:            { slug: 'wiz',               color: '00d4ff', bg: '#003d4d' },
+  aws_iam:        { slug: 'amazonaws',         color: 'ff9900', bg: '#ffffff', local: '/aws-identity.png' },
+  azure_arm:      { slug: 'microsoftazure',    color: '0078d4', bg: '#ffffff', local: '/azure-arm.png' },
+  gcp_iam:        { slug: 'googlecloud',       color: '4285f4', bg: '#ffffff', local: '/google-iam.png' },
+  gcp_scc:        { slug: 'googlecloud',       color: '34a853', bg: '#ffffff', local: '/google-scc.jpg' },
+  wiz:            { slug: 'wiz',               color: '00d4ff', bg: '#ffffff', local: '/Wiz-icon-NEW.png' },
 
   // Network & Zero Trust
-  paloalto:       { slug: 'paloaltonetworks',  color: 'fa582d', bg: '#3d1509' },
-  zscaler:        { slug: 'zscaler',           color: '1565c0', bg: '#0a2240' },
-  cloudflare:     { slug: 'cloudflare',        color: 'f38020', bg: '#3d2108' },
+  paloalto:       { slug: 'paloaltonetworks',  color: 'fa582d', bg: '#ffffff' },
+  zscaler:        { slug: 'zscaler',           color: '1565c0', bg: '#ffffff', local: '/Zscaler_1080x1080.png' },
+  cloudflare:     { slug: 'cloudflare',        color: 'f38020', bg: '#ffffff' },
   cisco_umbrella: { slug: 'cisco',             color: '1ba0d7', bg: '#082e3d' },
   netskope:       { slug: 'netskope',          color: '00b5e2', bg: '#003040' },
 
@@ -57,8 +57,10 @@ const BRAND_LOGOS: Record<string, { slug: string; color: string; bg: string }> =
 
   // AI / LLM
   openai:         { slug: 'openai',            color: '74aa9c', bg: '#1a2e2c' },
+  azure_openai:   { slug: 'openai',            color: '74aa9c', bg: '#1a2e2c' },
   anthropic:      { slug: 'anthropic',         color: 'd4a27f', bg: '#3d2510' },
   ollama:         { slug: 'ollama',            color: 'ffffff', bg: '#1a1a2e' },
+  nvidia_nim:     { slug: 'nvidia',            color: '76b900', bg: '#162408' },
 
   // Dev & Collaboration
   github:         { slug: 'github',            color: 'ffffff', bg: '#1a1a2e' },
@@ -80,9 +82,68 @@ const BRAND_LOGOS: Record<string, { slug: string; color: string; bg: string }> =
   vanta:          { slug: 'vanta',             color: '4a60de', bg: '#0f1838' },
 };
 
+const BRAND_ALIASES: Record<string, string> = {
+  msteams: 'ms_teams',
+  teams: 'ms_teams',
+  entra: 'entra_id',
+  azureopenai: 'azure_openai',
+  microsoftsentinel: 'sentinel',
+  sentineloneedr: 'sentinelone',
+  defender: 'defender_endpoint',
+  microsoftdefender: 'defender_endpoint',
+  nvidianim: 'nvidia_nim',
+  vault: 'hashicorp_vault',
+};
+
+function resolveBrandKey(type: string, name: string): string | null {
+  const raw = String(type || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (BRAND_LOGOS[raw]) return raw;
+
+  const normalized = raw.replace(/[^a-z0-9]/g, '');
+  const alias = BRAND_ALIASES[normalized];
+  if (alias && BRAND_LOGOS[alias]) return alias;
+
+  // Keyword fallback for minor backend/provider key drift.
+  const haystack = `${raw} ${String(name || '').toLowerCase()}`;
+  const keywordMap: Array<[string, string]> = [
+    ['nvidia', 'nvidia_nim'],
+    ['azure openai', 'azure_openai'],
+    ['openai', 'openai'],
+    ['anthropic', 'anthropic'],
+    ['ollama', 'ollama'],
+    ['okta', 'okta'],
+    ['crowdstrike', 'crowdstrike'],
+    ['sentinelone', 'sentinelone'],
+    ['defender', 'defender_endpoint'],
+    ['github', 'github'],
+    ['gitlab', 'gitlab'],
+    ['slack', 'slack'],
+    ['jira', 'jira'],
+    ['servicenow', 'servicenow'],
+    ['pagerduty', 'pagerduty'],
+    ['splunk', 'splunk'],
+    ['elastic', 'elastic'],
+    ['datadog', 'datadog'],
+    ['cloudflare', 'cloudflare'],
+    ['zscaler', 'zscaler'],
+    ['palo alto', 'paloalto'],
+    ['cyberark', 'cyberark'],
+    ['duo', 'duo'],
+    ['tenable', 'tenable'],
+    ['qualys', 'qualys'],
+    ['virustotal', 'virustotal'],
+  ];
+  for (const [needle, key] of keywordMap) {
+    if (haystack.includes(needle) && BRAND_LOGOS[key]) return key;
+  }
+  return null;
+}
+
 // ConnectorIcon — real brand logo from Simple Icons, styled initials fallback
 function ConnectorIcon({ type, name, size = 32 }: { type: string; name: string; size?: number }) {
-  const brand = BRAND_LOGOS[type];
+  const brandKey = resolveBrandKey(type, name);
+  const brand = brandKey ? BRAND_LOGOS[brandKey] : undefined;
   const [imgError, setImgError] = useState(false);
 
   const initials = (name || type)
@@ -108,7 +169,7 @@ function ConnectorIcon({ type, name, size = 32 }: { type: string; name: string; 
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`https://cdn.simpleicons.org/${brand.slug}/${brand.color}`}
+          src={brand.local || `https://cdn.simpleicons.org/${brand.slug}/${brand.color}`}
           alt={name}
           width={size - 12}
           height={size - 12}
