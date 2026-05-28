@@ -19,6 +19,7 @@ from app.claws.arcclaw.llm_proxy import call_llm, available_providers
 from app.claws.arcclaw.security_agent import run_security_agent, TOOLS
 from app.models.connector import Connector
 from app.services import secrets_manager
+from app.models.connector import ConnectorStatus
 from pydantic import BaseModel as PydanticBase
 from typing import Optional as Opt
 
@@ -190,6 +191,54 @@ async def get_arcclaw_stats(db: AsyncSession = Depends(get_db)):
         avg_risk_score=round(avg_risk.scalar() or 0.0, 2),
         top_tools=top_tools,
     )
+
+
+@router.get("/findings", summary="ArcClaw findings compatibility endpoint")
+async def get_arcclaw_findings(limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """
+    Compatibility endpoint so ArcClaw exposes the same surface as other claws.
+    Returns recent AI events mapped into finding-like records.
+    """
+    result = await db.execute(
+        select(AIEvent).order_by(desc(AIEvent.timestamp)).limit(limit)
+    )
+    events = result.scalars().all()
+    findings = []
+    for e in events:
+        sev = severity_from_score(e.risk_score or 0.0)
+        findings.append({
+            "id": str(e.id),
+            "claw": "arcclaw",
+            "severity": sev,
+            "title": f"AI event: {e.event_type.value}",
+            "resource": e.tool_name or "ai-tool",
+            "status": "open" if e.outcome != AIEventOutcome.ALLOWED else "resolved",
+            "risk_score": float(e.risk_score or 0.0),
+            "outcome": e.outcome.value,
+            "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+        })
+    return findings
+
+
+@router.get("/providers", summary="ArcClaw provider connection status")
+async def get_arcclaw_providers(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Connector).where(
+            Connector.connector_type.in_(["openai", "anthropic", "ollama", "nvidia_nim", "azure_openai"])
+        )
+    )
+    connectors = result.scalars().all()
+    configured_ids = set(secrets_manager.list_configured())
+    rows = []
+    for c in connectors:
+        rows.append({
+            "id": str(c.id),
+            "provider": c.connector_type,
+            "name": c.name,
+            "status": c.status.value if isinstance(c.status, ConnectorStatus) else str(c.status),
+            "is_configured": str(c.id) in configured_ids,
+        })
+    return rows
 
 
 # ── LLM Proxy endpoints ───────────────────────────────────────────────────────

@@ -16,12 +16,22 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.models.agent import Agent, PlatformSettings, ExecutionMode
 from app.services.agent_runner import _apply_autonomy_ceiling
 
 router = APIRouter(prefix="/autonomy", tags=["CoreOS — Autonomy Controls"])
+
+
+class EmergencyActivateRequest(BaseModel):
+    reason: str
+    activated_by: str = "platform_admin"
+
+
+class EmergencyDeactivateRequest(BaseModel):
+    deactivated_by: str = "platform_admin"
 
 # ─── Mode metadata for the API ────────────────────────────────────────────────
 
@@ -131,8 +141,7 @@ async def update_platform_settings(
 
 @router.post("/emergency/activate")
 async def activate_emergency_mode(
-    reason:       str = Body(...),
-    activated_by: str = Body("platform_admin"),
+    payload: EmergencyActivateRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -140,6 +149,8 @@ async def activate_emergency_mode(
     Only pre-approved containment actions are allowed platform-wide.
     """
     settings = await _get_or_create_settings(db)
+    reason = payload.reason
+    activated_by = payload.activated_by
     settings.emergency_mode_active       = True
     settings.emergency_mode_reason       = reason
     settings.emergency_mode_activated_at = datetime.now(timezone.utc)
@@ -159,10 +170,11 @@ async def activate_emergency_mode(
 
 @router.post("/emergency/deactivate")
 async def deactivate_emergency_mode(
-    deactivated_by: str = Body("platform_admin"),
+    payload: EmergencyDeactivateRequest,
     db: AsyncSession = Depends(get_db),
 ):
     settings = await _get_or_create_settings(db)
+    deactivated_by = payload.deactivated_by
     prev_reason = settings.emergency_mode_reason
     settings.emergency_mode_active       = False
     settings.emergency_mode_reason       = None

@@ -334,6 +334,53 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!--  v0.2.1 — AGT/Swarm Runtime Hardening                               -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <div class="release">
+    <div class="release-dot" style="background: var(--purple);"></div>
+
+    <div class="release-header">
+      <div>
+        <div class="release-title">AGT + Swarm Runtime Hardening</div>
+        <div class="release-meta" style="margin-top:6px;">
+          <span class="tag tag-fix">Fixes</span>
+          <span class="tag tag-feat">Platform</span>
+          <span class="tag tag-sec">Governance</span>
+          <span class="release-date">May 28, 2026 &nbsp;·&nbsp; v0.2.1</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="release-body">
+      <div class="release-description">
+        This release hardens RegentClaw's AGT and Swarm surfaces for production-style validation:
+        route reliability fixes, contract normalization, new regression coverage, and clearer operator
+        visibility in Trust Fabric and Swarm UI.
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">What's New</div>
+        <ul class="change-list">
+          <li><strong>Trust Fabric UI</strong> now includes a live <code>MCP Security Scan</code> panel wired to <code>POST /api/v1/trust-fabric/mcp/scan</code>.</li>
+          <li><strong>Swarm UI</strong> now shows per-task secure channel state on <code>/swarm/[id]</code> and adds participants/runtime columns on <code>/swarm</code>.</li>
+          <li><strong>Swarm tests</strong> now verify <code>AGT_ENABLE_E2E_MESSAGING</code> behavior for both disabled and enabled modes.</li>
+        </ul>
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">Fixes &amp; Reliability</div>
+        <ul class="change-list">
+          <li><strong>Policy packs stats</strong> route shadowing fixed for <code>GET /api/v1/policy-packs/stats</code>.</li>
+          <li><strong>Schedule delete</strong> no longer fails on linked runs; related <code>agent_runs.schedule_id</code> is cleared first.</li>
+          <li><strong>Autonomy emergency mode</strong> endpoints now accept object JSON payloads used by the UI.</li>
+          <li><strong>Run replay</strong> now supports <code>GET /api/v1/orchestrations/run-replay/{run_id}</code>.</li>
+          <li><strong>Claw contract consistency</strong> added missing compatibility endpoints for ArcClaw and IdentityClaw findings/providers.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
   <!--  v0.2.0 — NVIDIA NIM Integration                                    -->
   <!-- ════════════════════════════════════════════════════════════════════ -->
   <div class="release">

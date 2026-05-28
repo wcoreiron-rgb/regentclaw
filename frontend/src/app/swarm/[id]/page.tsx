@@ -15,6 +15,18 @@ function statusMeta(status: string) {
   return { icon: Clock, color: 'text-gray-400' };
 }
 
+function secureChannelMeta(outputJson?: string | null): string {
+  if (!outputJson) return '—';
+  try {
+    const parsed = JSON.parse(outputJson);
+    const channel = parsed?.secure_channel;
+    if (!channel || channel.enabled !== true) return 'disabled';
+    return channel.status || 'enabled';
+  } catch {
+    return '—';
+  }
+}
+
 export default function SwarmJobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [job, setJob] = useState<any>(null);
@@ -123,6 +135,7 @@ useEffect(() => { load(); }, [load]);
                   <th className="px-5 py-3 text-left">Severity</th>
                   <th className="px-5 py-3 text-left">Confidence</th>
                   <th className="px-5 py-3 text-left">Risk</th>
+                  <th className="px-5 py-3 text-left">Secure Channel</th>
                   <th className="px-5 py-3 text-left">Exec Time</th>
                 </tr>
               </thead>
@@ -130,6 +143,7 @@ useEffect(() => { load(); }, [load]);
                 {tasks.map((task) => {
                   const tMeta = statusMeta(task.status);
                   const TIcon = tMeta.icon;
+                  const secureState = secureChannelMeta(task.output_json);
                   return (
                     <tr key={task.id} className="hover:bg-gray-800/40">
                       <td className="px-5 py-3 text-white">{task.claw}</td>
@@ -138,6 +152,7 @@ useEffect(() => { load(); }, [load]);
                       <td className="px-5 py-3"><RiskBadge value={task.severity || 'info'} /></td>
                       <td className="px-5 py-3 text-gray-300">{task.confidence ?? '—'}</td>
                       <td className="px-5 py-3 text-gray-300">{task.risk_score ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-300">{secureState}</td>
                       <td className="px-5 py-3 text-gray-400">{task.execution_time_ms != null ? `${task.execution_time_ms}ms` : '—'}</td>
                     </tr>
                   );

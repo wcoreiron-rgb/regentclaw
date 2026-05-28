@@ -14,6 +14,25 @@ function statusMeta(status: string) {
   return { icon: Clock, color: 'text-gray-400' };
 }
 
+function parseParticipants(value?: string): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function runtimeLabel(startedAt?: string | null, completedAt?: string | null): string {
+  if (!startedAt) return '—';
+  const start = new Date(startedAt).getTime();
+  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '—';
+  const seconds = Math.round((end - start) / 1000);
+  return `${seconds}s`;
+}
+
 export default function SwarmPage() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,9 +149,11 @@ export default function SwarmPage() {
                 <tr>
                   <th className="px-5 py-3 text-left">Name</th>
                   <th className="px-5 py-3 text-left">Profile</th>
+                  <th className="px-5 py-3 text-left">Participants</th>
                   <th className="px-5 py-3 text-left">Status</th>
                   <th className="px-5 py-3 text-left">Severity</th>
                   <th className="px-5 py-3 text-left">Confidence</th>
+                  <th className="px-5 py-3 text-left">Runtime</th>
                   <th className="px-5 py-3 text-left">Requested By</th>
                   <th className="px-5 py-3 text-left">Actions</th>
                 </tr>
@@ -142,12 +163,14 @@ export default function SwarmPage() {
                   const meta = statusMeta(job.status);
                   const Icon = meta.icon;
                   const busy = busyId === job.id;
+                  const participants = parseParticipants(job.participants_json);
                   return (
                     <tr key={job.id} className="hover:bg-gray-800/40">
                       <td className="px-5 py-3">
                         <Link href={`/swarm/${job.id}`} className="text-white hover:text-cyan-300">{job.name}</Link>
                       </td>
                       <td className="px-5 py-3 text-gray-400">{job.profile}</td>
+                      <td className="px-5 py-3 text-gray-400">{participants.length ? participants.join(', ') : '—'}</td>
                       <td className="px-5 py-3">
                         <span className={`inline-flex items-center gap-1 ${meta.color}`}>
                           <Icon className={`w-4 h-4 ${job.status === 'running' ? 'animate-spin' : ''}`} />
@@ -156,6 +179,7 @@ export default function SwarmPage() {
                       </td>
                       <td className="px-5 py-3"><RiskBadge value={job.overall_severity || 'info'} /></td>
                       <td className="px-5 py-3 text-gray-300">{job.confidence ?? '—'}</td>
+                      <td className="px-5 py-3 text-gray-300">{runtimeLabel(job.started_at, job.completed_at)}</td>
                       <td className="px-5 py-3 text-gray-400">{job.requested_by}</td>
                       <td className="px-5 py-3">
                         <div className="flex gap-2">

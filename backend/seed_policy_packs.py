@@ -1,6 +1,6 @@
 """
 RegentClaw — Policy Pack Seeder
-Loads 5 compliance framework packs: Zero Trust Baseline, SOC2, ISO27001, HIPAA, PCI-DSS.
+Loads 6 packs: Zero Trust Baseline, AGT/Swarm Governance, SOC2, ISO27001, HIPAA, PCI-DSS.
 
 Usage:
   docker compose exec backend python seed_policy_packs.py          # additive
@@ -104,6 +104,90 @@ PACKS = [
                 "scope_target": "identityclaw",
                 "condition_json": json.dumps({"field": "risk_score", "op": "gte", "value": 70}),
                 "action": "monitor",
+                "is_active": True,
+            },
+        ],
+    },
+    {
+        "name": "AGT/Swarm Governance",
+        "framework": "agt-swarm",
+        "version": "3.0",
+        "description": (
+            "Governance controls for AGT-enabled model/tool usage and SwarmClaw orchestration. "
+            "Covers model calls, MCP gateway scans, skill-pack installs, swarm parallelism, and "
+            "encrypted inter-claw message actions."
+        ),
+        "policies": [
+            {
+                "name": "AGT — Deny Model Calls for Restricted Data",
+                "description": "MODELCLAW | Block external model calls when data classification is restricted",
+                "priority": 6,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "data_classification", "op": "eq", "value": "restricted"}),
+                "action": "deny",
+                "is_active": True,
+            },
+            {
+                "name": "AGT — Require Approval for High-Risk Skill Pack Installs",
+                "description": "SKILLCLAW | Escalate installation when pack risk is high or critical",
+                "priority": 8,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "pack_risk_level", "op": "in", "value": ["high", "critical"]}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "AGT — Deny Skill Pack Install Without Owner Attribution",
+                "description": "SKILLCLAW | Block installs where actor identity is missing or anonymous",
+                "priority": 9,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "actor_id", "op": "eq", "value": "anonymous"}),
+                "action": "deny",
+                "is_active": True,
+            },
+            {
+                "name": "SWARM — Require Approval for Parallelism Above 6",
+                "description": "SWARMCLAW | Escalate swarm jobs that exceed safe default parallelism",
+                "priority": 12,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "parallelism", "op": "gt", "value": 6}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "MCP — Deny Gateway Scans with Critical Findings",
+                "description": "MCPCLAW | Block downstream execution when MCP gateway reports critical findings",
+                "priority": 14,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "mcp_critical_count", "op": "gt", "value": 0}),
+                "action": "deny",
+                "is_active": True,
+            },
+            {
+                "name": "MCP — Require Approval for High Gateway Risk",
+                "description": "MCPCLAW | Escalate actions when gateway risk score is high",
+                "priority": 16,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "mcp_risk_score", "op": "gte", "value": 70}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "SWARM — Monitor Encrypted Inter-Claw Message Actions",
+                "description": "SWARMCLAW | Audit all E2E inter-claw message events",
+                "priority": 18,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "action", "op": "eq", "value": "e2e_message"}),
+                "action": "monitor",
+                "is_active": True,
+            },
+            {
+                "name": "AGT — Require Approval for Containment Actions",
+                "description": "TRUST FABRIC | Escalate isolate/block/suspend actions for explicit human sign-off",
+                "priority": 20,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "action", "op": "in", "value": ["isolate_module", "block_connector", "suspend_identity"]}),
+                "action": "require_approval",
                 "is_active": True,
             },
         ],

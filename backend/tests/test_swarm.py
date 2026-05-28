@@ -1,4 +1,7 @@
 import pytest
+from app.fabric.providers.agt import adapter as agt_adapter_module
+from app.core.config import settings
+import json
 
 
 BASE = "/api/v1/swarm/jobs"
@@ -67,3 +70,44 @@ async def test_list_swarm_jobs(client):
     assert isinstance(jobs, list)
     assert len(jobs) >= 2
 
+
+@pytest.mark.asyncio
+async def test_swarm_task_secure_channel_disabled_by_default(client):
+    settings.AGT_ENABLE_E2E_MESSAGING = False
+    agt_adapter_module._adapter = None
+    try:
+        create = await client.post(BASE, json=_payload(name="Swarm E2E Off"))
+        assert create.status_code == 201, create.text
+        job_id = create.json()["id"]
+
+        tasks_res = await client.get(f"{BASE}/{job_id}/tasks")
+        assert tasks_res.status_code == 200
+        tasks = tasks_res.json()
+        assert tasks
+        sample_output = json.loads(tasks[0]["output_json"])
+        assert "secure_channel" not in sample_output
+    finally:
+        settings.AGT_ENABLE_E2E_MESSAGING = False
+        agt_adapter_module._adapter = None
+
+
+@pytest.mark.asyncio
+async def test_swarm_task_secure_channel_enabled(client):
+    settings.AGT_ENABLE_E2E_MESSAGING = True
+    agt_adapter_module._adapter = None
+    try:
+        create = await client.post(BASE, json=_payload(name="Swarm E2E On"))
+        assert create.status_code == 201, create.text
+        job_id = create.json()["id"]
+
+        tasks_res = await client.get(f"{BASE}/{job_id}/tasks")
+        assert tasks_res.status_code == 200
+        tasks = tasks_res.json()
+        assert tasks
+        sample_output = json.loads(tasks[0]["output_json"])
+        assert sample_output["secure_channel"]["enabled"] is True
+        assert sample_output["policy_decisions"][-1]["action"] == "E2E_MESSAGE"
+    finally:
+        # Restore default toggle for test isolation across modules.
+        settings.AGT_ENABLE_E2E_MESSAGING = False
+        agt_adapter_module._adapter = None

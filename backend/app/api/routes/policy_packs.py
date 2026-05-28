@@ -20,6 +20,18 @@ async def list_policy_packs(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.get("/stats")
+async def policy_pack_stats(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(PolicyPack))
+    packs = result.scalars().all()
+    return {
+        "total_packs": len(packs),
+        "applied_packs": sum(1 for p in packs if p.is_applied),
+        "frameworks": sorted({p.framework for p in packs if p.framework}),
+        "total_policies": sum(p.policy_count for p in packs),
+    }
+
+
 @router.get("/{pack_id}", response_model=PolicyPackRead)
 async def get_policy_pack(pack_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(PolicyPack).where(PolicyPack.id == UUID(pack_id)))

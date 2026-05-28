@@ -108,6 +108,26 @@ RegentClaw now exposes AGT rollout through a provider boundary instead of direct
 
 Detailed rollout plan: `docs/agt-3.2-regentclaw-plan.md`
 
+## Latest Updates (May 28, 2026)
+
+- Trust Fabric:
+  - Added live MCP scan controls in UI (`/trust-fabric`) wired to `POST /api/v1/trust-fabric/mcp/scan`.
+  - Added regression coverage for:
+    - `GET /api/v1/trust-fabric/multi-agent/status`
+    - `POST /api/v1/trust-fabric/mcp/scan`
+- Swarm:
+  - Added secure-channel visibility per task in `/swarm/[id]` (E2E messaging status).
+  - Improved `/swarm` list with participants and runtime columns for faster validation.
+  - Added test coverage for `AGT_ENABLE_E2E_MESSAGING` enabled/disabled paths.
+- Platform reliability:
+  - Fixed route shadowing on `GET /api/v1/policy-packs/stats`.
+  - Fixed schedule delete FK issue by clearing linked `agent_runs.schedule_id`.
+  - Fixed autonomy emergency payload shape to accept object JSON from UI.
+  - Added run replay alias endpoint: `GET /api/v1/orchestrations/run-replay/{run_id}`.
+  - Added compatibility endpoints for claw contract consistency:
+    - `/api/v1/arcclaw/findings`, `/api/v1/arcclaw/providers`
+    - `/api/v1/identityclaw/findings`, `/api/v1/identityclaw/providers`
+
 ## Claw Modules (24 total)
 
 | Module | Description |

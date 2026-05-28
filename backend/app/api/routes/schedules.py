@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, update
 
 from app.core.database import get_db
 from app.models.agent import Schedule, AgentRun, Agent, RunStatus, ScheduleFrequency
@@ -104,6 +104,12 @@ async def delete_schedule(schedule_id: uuid.UUID, db: AsyncSession = Depends(get
     sched = result.scalar_one_or_none()
     if not sched:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    # Preserve historical run records while allowing schedule deletion.
+    await db.execute(
+        update(AgentRun)
+        .where(AgentRun.schedule_id == schedule_id)
+        .values(schedule_id=None)
+    )
     await db.delete(sched)
     await db.commit()
 

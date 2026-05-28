@@ -128,7 +128,7 @@ export const getWorkflowRuns = (id: string, limit = 20) =>
 export const getRunReplay = (workflowId: string, runId: string) =>
   apiFetch<any>(`/orchestrations/${workflowId}/runs/${runId}/replay`);
 export const getRunReplayById = (runId: string) =>
-  apiFetch<any>(`/orchestrations/runs/${runId}/replay`);
+  apiFetch<any>(`/orchestrations/run-replay/${runId}`);
 export const getRecentRuns = (limit = 20) =>
   apiFetch<any[]>(`/orchestrations/runs/recent?limit=${limit}`);
 

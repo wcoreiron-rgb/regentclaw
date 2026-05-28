@@ -14,6 +14,7 @@ from app.schemas.identity import IdentityCreate, IdentityRead, IdentityUpdate
 from app.claws.identityclaw.models import IdentityRiskEvent, PrivilegedAction, IdentityRiskLevel
 from app.services.risk_scoring import calculate_event_risk
 from app.services.audit_service import log_action
+from app.models.connector import Connector
 
 router = APIRouter(prefix="/identityclaw", tags=["IdentityClaw — Identity Security"])
 
@@ -209,3 +210,66 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         high_risk_identities=high_risk.scalar() or 0,
         pending_approvals=pending.scalar() or 0,
     )
+
+
+@router.get("/findings", summary="IdentityClaw findings compatibility endpoint")
+async def get_identity_findings(limit: int = 100, db: AsyncSession = Depends(get_db)):
+    """
+    Compatibility endpoint for left-blade testing parity with other claws.
+    """
+    findings = []
+
+    risk_events = await db.execute(
+        select(IdentityRiskEvent).order_by(desc(IdentityRiskEvent.timestamp)).limit(limit)
+    )
+    for e in risk_events.scalars().all():
+        findings.append({
+            "id": str(e.id),
+            "claw": "identityclaw",
+            "severity": e.risk_level.value if hasattr(e.risk_level, "value") else str(e.risk_level),
+            "title": e.risk_type,
+            "resource": e.identity_name or e.identity_id,
+            "status": "resolved" if e.is_resolved else "open",
+            "risk_score": float(e.risk_score or 0.0),
+            "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+        })
+
+    if not findings:
+        identities = await db.execute(
+            select(Identity).order_by(desc(Identity.risk_score)).limit(limit)
+        )
+        for i in identities.scalars().all():
+            sev = "high" if (i.risk_score or 0) >= 70 else "medium" if (i.risk_score or 0) >= 40 else "low"
+            findings.append({
+                "id": str(i.id),
+                "claw": "identityclaw",
+                "severity": sev,
+                "title": f"Identity risk: {i.name}",
+                "resource": i.name,
+                "status": "open" if i.status == IdentityStatus.ACTIVE else "resolved",
+                "risk_score": float(i.risk_score or 0.0),
+                "timestamp": i.updated_at.isoformat() if i.updated_at else None,
+            })
+
+    return findings
+
+
+@router.get("/providers", summary="IdentityClaw provider connection status")
+async def get_identity_providers(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Connector).where(
+            Connector.connector_type.in_(["okta", "entra_id", "cyberark"])
+        )
+    )
+    providers = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "provider": c.connector_type,
+            "name": c.name,
+            "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+            "trust_score": c.trust_score,
+            "risk_level": c.risk_level.value if hasattr(c.risk_level, "value") else str(c.risk_level),
+        }
+        for c in providers
+    ]

@@ -39,6 +39,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-key-change-in-production
       DEBUG: "true"
+      AGT_ENABLE_MCP_GATEWAY: "true"
       ALLOWED_ORIGINS: '["http://localhost:3000","http://frontend:3000"]'
     volumes:
       - ./backend:/app

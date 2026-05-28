@@ -290,6 +290,12 @@ async def replay_run_by_id(run_id: str, db: AsyncSession = Depends(get_db)):
     return await replay_run(str(run.workflow_id), run_id, db)
 
 
+@router.get("/run-replay/{run_id}")
+async def replay_run_by_id_alias(run_id: str, db: AsyncSession = Depends(get_db)):
+    """Stable alias for replay-by-run-id to avoid dynamic route shadowing."""
+    return await replay_run_by_id(run_id, db)
+
+
 @router.get("/runs/recent")
 async def list_recent_runs(limit: int = Query(default=20, le=100), db: AsyncSession = Depends(get_db)):
     """List the most recent workflow runs across all workflows."""
@@ -306,7 +312,9 @@ async def list_recent_runs(limit: int = Query(default=20, le=100), db: AsyncSess
         if wf_id not in wf_cache:
             wf_r = await db.execute(select(Workflow).where(Workflow.id == run.workflow_id))
             wf_obj = wf_r.scalar_one_or_none()
-            wf_cache[wf_id] = wf_obj.name if wf_obj else "Unknown Workflow"
+            wf_cache[wf_id] = wf_obj.name if wf_obj else None
+        if wf_cache[wf_id] is None:
+            continue
         enriched.append({
             "run_id":        str(run.id),
             "workflow_id":   wf_id,
