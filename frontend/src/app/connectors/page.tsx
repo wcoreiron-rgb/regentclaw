@@ -47,11 +47,11 @@ const BRAND_LOGOS: Record<string, { slug: string; color: string; bg: string; loc
   zscaler:        { slug: 'zscaler',           color: '1565c0', bg: '#ffffff', local: '/Zscaler_1080x1080.png' },
   cloudflare:     { slug: 'cloudflare',        color: 'f38020', bg: '#ffffff' },
   cisco_umbrella: { slug: 'cisco',             color: '1ba0d7', bg: '#082e3d' },
-  netskope:       { slug: 'netskope',          color: '00b5e2', bg: '#003040' },
+  netskope:       { slug: 'netskope',          color: '00b5e2', bg: '#ffffff', local: '/netskope.png' },
 
   // Data & DLP
-  purview:        { slug: 'microsoftazure',    color: '0078d4', bg: '#0d2d4d' },
-  varonis:        { slug: 'varonis',           color: 'e02020', bg: '#3d0909' },
+  purview:        { slug: 'microsoftazure',    color: '0078d4', bg: '#ffffff', local: '/logo-microsoft-purview-.png.webp' },
+  varonis:        { slug: 'varonis',           color: 'e02020', bg: '#ffffff', local: '/icon128x128.png' },
   nightfall:      { slug: 'nightfall',         color: 'a855f7', bg: '#2d1040' },
   bigid:          { slug: 'bigid',             color: 'ff6d00', bg: '#3d1a00' },
 
