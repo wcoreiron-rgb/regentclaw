@@ -8,7 +8,8 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
+    :root,
+    html[data-theme="dark"] {
       --bg:        #0a0a0a;
       --surface:   #111111;
       --surface2:  #1a1a1a;
@@ -19,6 +20,20 @@
       --text:      #f4f4f5;
       --text2:     #a1a1aa;
       --text3:     #71717a;
+      --sidebar-w: 272px;
+      --radius:    6px;
+    }
+    html[data-theme="light"] {
+      --bg:        #f8fafc;
+      --surface:   #ffffff;
+      --surface2:  #f1f5f9;
+      --border:    #dbe3ee;
+      --blue:      #2563eb;
+      --blue-dim:  #1d4ed8;
+      --purple:    #7c3aed;
+      --text:      #0f172a;
+      --text2:     #334155;
+      --text3:     #64748b;
       --sidebar-w: 272px;
       --radius:    6px;
     }
@@ -50,7 +65,7 @@
     }
 
     pre {
-      background: #0d0d0d;
+      background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 1.25rem 1.5rem;
@@ -62,9 +77,9 @@
     }
     pre code { background: none; border: none; padding: 0; font-size: inherit; }
 
-    .c-comment { color: #6b7280; }
-    .c-cmd     { color: #34d399; }
-    .c-str     { color: #fbbf24; }
+    .c-comment { color: var(--text3); }
+    .c-cmd     { color: #10b981; }
+    .c-str     { color: #d97706; }
     .c-kw      { color: #a78bfa; }
     .c-num     { color: #fb923c; }
     .c-key     { color: #60a5fa; }
@@ -75,7 +90,7 @@
       top: 0; left: 0; right: 0;
       z-index: 200;
       height: 56px;
-      background: rgba(10,10,10,0.95);
+      background: color-mix(in srgb, var(--bg) 95%, transparent);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -125,6 +140,17 @@
       padding: 5px 12px;
       border-radius: var(--radius);
       font-size: 0.8rem !important;
+    }
+    .theme-toggle {
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
     }
 
     /* ── LAYOUT ── */
@@ -379,6 +405,7 @@
   <div class="topbar-right">
     <a href="index.html">Home</a>
     <a href="changelog.html">Changelog</a>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">☀️ Light</button>
     <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="topbar-github">
       <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.08-.74.08-.72.08-.72 1.2.08 1.83 1.23 1.83 1.23 1.06 1.82 2.8 1.3 3.48.99.1-.77.41-1.3.75-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02.004 2.04.14 3 .4 2.28-1.55 3.28-1.23 3.28-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.82.58A12 12 0 0 0 24 12C24 5.37 18.63 0 12 0z"/></svg>
       GitHub
@@ -822,6 +849,10 @@ Content-Type: application/json
       <h1>AGT Rollout &amp; Swarm</h1>
       <p class="lead">RegentClaw integrates AGT through a provider adapter boundary and feature flags. This allows staged rollout without coupling every claw directly to AGT internals.</p>
 
+      <div class="callout tip">
+        <strong>Latest operator updates (May 2026):</strong> Left-blade module route coverage was validated across all sidebar modules, Trigger UI now supports direct <code>/triggers/{id}/test</code> execution, and Swarm task detail surfaces E2E secure-channel status when enabled.
+      </div>
+
       <h2>Adapter Boundary</h2>
       <p>AGT integration is isolated under:</p>
       <pre>backend/app/fabric/providers/agt/
@@ -869,6 +900,15 @@ AGT_ENABLE_SHADOW_DISCOVERY=false</pre>
         <li>Task output includes a <code>secure_channel</code> envelope and digest.</li>
         <li><code>policy_decisions</code> includes <code>E2E_MESSAGE</code> outcome metadata.</li>
         <li>When AGT is unavailable, the path remains deterministic with simulated encrypted envelope status.</li>
+      </ul>
+
+      <h2>Operational Regression Fixes (Shipped)</h2>
+      <ul>
+        <li><strong>Policy pack stats route</strong> route ordering fixed so <code>GET /api/v1/policy-packs/stats</code> is no longer shadowed by dynamic pack-id routes.</li>
+        <li><strong>Schedule delete path</strong> now clears linked run references first, preventing FK failures when deleting schedules with existing run history.</li>
+        <li><strong>Autonomy emergency mode</strong> activate/deactivate endpoints now accept object JSON payloads from UI clients.</li>
+        <li><strong>Run replay alias</strong> added: <code>GET /api/v1/orchestrations/run-replay/{run_id}</code>.</li>
+        <li><strong>Claw contract compatibility</strong> ensured for ArcClaw and IdentityClaw findings/providers routes.</li>
       </ul>
     </div>
 
@@ -1007,6 +1047,8 @@ router = APIRouter(prefix=<span class="c-str">f"/api/v1/{CLAW_NAME}"</span>, tag
 <span class="c-cmd">POST</span>   /api/v1/connectors/
 <span class="c-cmd">PATCH</span>  /api/v1/connectors/{id}
 <span class="c-cmd">DELETE</span> /api/v1/connectors/{id}</pre>
+      <p>Connector cards use curated brand icons (local assets first, CDN fallback second). Key normalization, alias resolution, and keyword fallback prevent broken logos when connector types vary slightly across providers.</p>
+      <p>Latest connector UI updates include curated local brand assets for major providers (identity, SIEM, endpoint, cloud, and network connectors) plus white-background rendering for logo families that require it.</p>
     </div>
 
     <!-- ─── COREOS: AGENTS & WORKFLOWS ─── -->
@@ -1051,6 +1093,10 @@ router = APIRouter(prefix=<span class="c-str">f"/api/v1/{CLAW_NAME}"</span>, tag
     <div id="sec-core-triggers" class="doc-section">
       <h1>Event Triggers</h1>
       <p class="lead">Event triggers allow RegentClaw to react automatically to security events — findings crossing severity thresholds, policy violations, external webhook payloads, and schedule-based cadences.</p>
+
+      <div class="callout">
+        <strong>UI update:</strong> Trigger detail rows now support direct <code>Test Trigger</code> actions from the frontend, calling <code>POST /api/v1/triggers/{id}/test</code> with sample payloads and returning immediate match/non-match feedback.
+      </div>
 
       <h2>Trigger Types</h2>
       <table>
@@ -1111,6 +1157,9 @@ router = APIRouter(prefix=<span class="c-str">f"/api/v1/{CLAW_NAME}"</span>, tag
 
       <div class="callout">
         <strong>All scheduled actions pass through the Trust Fabric.</strong> The scheduler is an actor with its own identity and Trust Fabric profile. Emergency mode will suspend all scheduled actions except containment-type tasks.
+      </div>
+      <div class="callout tip">
+        <strong>Reliability note:</strong> Deleting schedules with historical runs is supported; the backend now safely detaches linked run schedule references before deletion.
       </div>
     </div>
 
@@ -1497,6 +1546,31 @@ app.include_router(newclaw_router)</pre>
 </div>
 
 <script>
+  (function () {
+    const root = document.documentElement;
+    const toggle = document.getElementById('theme-toggle');
+    const stored = localStorage.getItem('regentclaw-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = stored || (prefersDark ? 'dark' : 'light');
+
+    function applyTheme(theme) {
+      root.setAttribute('data-theme', theme);
+      if (toggle) {
+        toggle.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
+      }
+    }
+
+    applyTheme(initialTheme);
+
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem('regentclaw-theme', next);
+      });
+    }
+  })();
+
   function show(id) {
     // Hide all sections
     document.querySelectorAll('.doc-section').forEach(s => s.classList.remove('active'));
