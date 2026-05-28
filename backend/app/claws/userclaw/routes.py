@@ -20,7 +20,7 @@ _FINDINGS = [
         "provider": "exabeam",
         "title": "User Accessing 10x More Records Than Baseline — Potential Data Exfiltration",
         "description": (
-            "User dthompson@corp.com accessed 14,382 customer records from the CRM system "
+            "User redacted_user accessed 14,382 customer records from the CRM system "
             "(salesforce-prod) between 09:00–11:30 UTC. Exabeam UEBA baseline analysis "
             "(90-day rolling average) shows this user's normal access rate is 1,240 records/week. "
             "The activity today represents a 10.3x deviation from baseline — flagged as a "
@@ -57,7 +57,7 @@ _FINDINGS = [
         "title": "Impossible Travel Detected — New York to London in 2 Hours",
         "description": (
             "Microsoft Sentinel UEBA detected an impossible travel event for user "
-            "jsmith@corp.com. Authentication from New York City (IP 203.0.113.45, "
+            "redacted_user. Authentication from New York City (IP 203.0.113.45, "
             "Verizon AS701, geolocation: 40.7128N 74.0060W) was recorded at 08:42 UTC. "
             "A subsequent successful authentication occurred at 10:38 UTC from London, UK "
             "(IP 185.220.101.6, Virgin Media AS5089, geolocation: 51.5074N 0.1278W) — "
@@ -71,11 +71,11 @@ _FINDINGS = [
         "severity": "CRITICAL",
         "resource_id": "user-jsmith-aad-objectid-00a1b2c3",
         "resource_type": "AzureADUser",
-        "resource_name": "jsmith@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (
-            "1. Immediately revoke all active sessions and refresh tokens for jsmith@corp.com. "
+            "1. Immediately revoke all active sessions and refresh tokens for redacted_user. "
             "2. Force password reset with MFA re-enrollment. "
             "3. Determine which resources were accessed from the London IP and assess data exposure. "
             "4. Correlate with physical badge access data to confirm if jsmith was actually in NYC. "
@@ -130,7 +130,7 @@ _FINDINGS = [
         "provider": "exabeam",
         "title": "Bulk Data Download Before Resignation — 4.1 GB Downloaded by Departing Employee",
         "description": (
-            "Exabeam detected that senior engineer aparker@corp.com, who submitted resignation "
+            "Exabeam detected that senior engineer redacted_user, who submitted resignation "
             "6 days ago (last day: January 22, 2024), downloaded 4.1 GB of files from "
             "SharePoint, GitHub, and the internal wiki between 14:30–17:15 UTC. "
             "File types include source code archives (.zip from GitHub API), architecture "
@@ -144,7 +144,7 @@ _FINDINGS = [
         "severity": "CRITICAL",
         "resource_id": "user-aparker-m365-id-00d4e5f6",
         "resource_type": "M365User",
-        "resource_name": "aparker@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (
@@ -167,7 +167,7 @@ _FINDINGS = [
         "provider": "microsoft_sentinel",
         "title": "MFA Bypass via Legacy Authentication Protocol — IMAP Access to Exchange",
         "description": (
-            "Microsoft Sentinel detected user bpatel@corp.com authenticating to Exchange Online "
+            "Microsoft Sentinel detected user redacted_user authenticating to Exchange Online "
             "via IMAP (legacy protocol) from IP 91.108.56.183 at 03:22 UTC. "
             "The organization's Conditional Access policy requires MFA for all cloud app access "
             "— but the IMAP protocol does not support modern authentication, bypassing MFA entirely. "
@@ -181,12 +181,12 @@ _FINDINGS = [
         "severity": "HIGH",
         "resource_id": "user-bpatel-aad-objectid-00g7h8i9",
         "resource_type": "AzureADUser",
-        "resource_name": "bpatel@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (
             "1. Disable legacy authentication for bpatel's account immediately. "
-            "2. Force password reset and MFA re-enrollment for bpatel@corp.com. "
+            "2. Force password reset and MFA re-enrollment for redacted_user. "
             "3. Create a Conditional Access policy to block all legacy authentication protocols org-wide. "
             "4. Audit which other accounts have authenticated via IMAP or POP3 in the past 30 days. "
             "5. Review the 847 downloaded emails for data exfiltration scope. "
@@ -205,7 +205,7 @@ _FINDINGS = [
         "title": "Account Sharing Detected — Concurrent Sessions from 3 Different IP Addresses",
         "description": (
             "Securonix detected simultaneous active sessions for shared service account "
-            "'svc-reporting@corp.com' from 3 geographically distinct IP addresses: "
+            "'redacted_user' from 3 geographically distinct IP addresses: "
             "10.0.1.47 (NYC office), 203.0.113.88 (Chicago office), and 198.51.100.44 "
             "(unrecognized external IP — Frankfurt, Germany). "
             "All three sessions are active concurrently — this is only possible if the "
@@ -217,7 +217,7 @@ _FINDINGS = [
         ),
         "category": "account_sharing",
         "severity": "HIGH",
-        "resource_id": "svc-reporting@corp.com",
+        "resource_id": "redacted_user",
         "resource_type": "SharedServiceAccount",
         "resource_name": "svc-reporting",
         "region": "us-east-1",

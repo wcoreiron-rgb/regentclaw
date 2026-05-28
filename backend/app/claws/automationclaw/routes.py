@@ -138,7 +138,7 @@ _FINDINGS = [
         "description": (
             "GitHub Actions workflow PR #1247 ('Update deployment automation — add prod deploy step') "
             "was merged to the main branch on January 14 without any code review approval. "
-            "The PR was authored by contractor account contractor_lchang@corp.com and merged "
+            "The PR was authored by contractor account redacted_user and merged "
             "by the same account 4 minutes after opening — exploiting a missing branch protection "
             "rule that should require at least 1 approval. "
             "The merged code adds a new deploy step that executes: "

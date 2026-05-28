@@ -20,35 +20,35 @@ Base.metadata.create_all(bind=engine)
 ENTITIES = [
     # Normal users — plenty of events to build a solid baseline
     {
-        "entity_id":   "alice@company.com",
+        "entity_id":   "redacted_user",
         "entity_type": "user",
         "display_name": "Alice Chen",
         "source_claw": "identityclaw",
         "profile": "normal",           # routine 9-to-5, login + read + api_call
     },
     {
-        "entity_id":   "bob@company.com",
+        "entity_id":   "redacted_user",
         "entity_type": "user",
         "display_name": "Bob Martinez",
         "source_claw": "identityclaw",
         "profile": "normal",
     },
     {
-        "entity_id":   "carol@company.com",
+        "entity_id":   "redacted_user",
         "entity_type": "user",
         "display_name": "Carol Singh",
         "source_claw": "identityclaw",
         "profile": "anomalous_time",   # logs in at 3am (off-hours anomaly)
     },
     {
-        "entity_id":   "dave@company.com",
+        "entity_id":   "redacted_user",
         "entity_type": "user",
         "display_name": "Dave Okonkwo",
         "source_claw": "identityclaw",
         "profile": "velocity_spike",   # sudden burst of 400 events in 1 hour
     },
     {
-        "entity_id":   "eve.contractor@external.io",
+        "entity_id":   "redacted_user",
         "entity_type": "user",
         "display_name": "Eve (Contractor)",
         "source_claw": "accessclaw",

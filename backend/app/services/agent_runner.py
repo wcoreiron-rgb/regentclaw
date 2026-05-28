@@ -109,11 +109,11 @@ def _simulate_agent_logic(agent: Agent) -> Dict[str, Any]:
     CLAW_SCENARIOS = {
         "identityclaw": {
             "findings": [
-                {"id": "F001", "severity": "high",   "title": "Stale admin account detected",   "user": "jdoe@corp.com"},
+                {"id": "F001", "severity": "high",   "title": "Stale admin account detected",   "user": "redacted_user"},
                 {"id": "F002", "severity": "medium", "title": "MFA not enforced on 3 accounts", "count": 3},
             ],
             "proposed_actions": [
-                {"id": "A001", "type": "disable_account",    "target": "jdoe@corp.com",   "risk": "low"},
+                {"id": "A001", "type": "disable_account",    "target": "redacted_user",   "risk": "low"},
                 {"id": "A002", "type": "enforce_mfa_policy", "target": "Marketing group", "risk": "medium"},
             ],
             "summary": "IdentityClaw found 2 identity hygiene issues. 1 stale admin, 3 accounts without MFA.",

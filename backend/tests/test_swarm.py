@@ -13,7 +13,7 @@ def _payload(**overrides):
         "profile": "INCIDENT_RESPONSE",
         "participants": ["identityclaw", "cloudclaw", "threatclaw"],
         "task_type": "investigate",
-        "input": {"entity": "user@company.com", "time_range": "24h"},
+        "input": {"entity": "redacted_user", "time_range": "24h"},
         "classification": "confidential",
         "parallelism": 3,
     }

@@ -143,8 +143,8 @@ _FINDINGS = [
         "provider": "microsoft_purview",
         "title": "Data Exfiltration via Email — 2.3 GB Sensitive Files Sent to Personal Gmail",
         "description": (
-            "Microsoft Purview Insider Risk Management alert: user jsmith@corp.com sent 847 "
-            "email attachments (2.3 GB total) to personal@gmail.com between 2024-01-08 and "
+            "Microsoft Purview Insider Risk Management alert: user redacted_user sent 847 "
+            "email attachments (2.3 GB total) to redacted_user between 2024-01-08 and "
             "2024-01-19 — a volume 31x above their 90-day baseline. Purview DLP content "
             "inspection identified files containing: Q4 2023 financial projections, M&A due "
             "diligence documents (project codenamed 'Phoenix'), customer contract database "

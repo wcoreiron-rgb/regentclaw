@@ -20,7 +20,7 @@ _FINDINGS = [
         "provider": "dtex",
         "title": "Employee on Performance Plan Accessing HR Database — 14x Above Baseline",
         "description": (
-            "DTEX detected that employee krodriguez@corp.com, currently on a Performance "
+            "DTEX detected that employee redacted_user, currently on a Performance "
             "Improvement Plan (PIP since December 4, 2023), accessed the HR database "
             "(hr-oracle-prod.corp.internal) 287 times between January 10–15 — 14x above "
             "their 90-day baseline of 20 accesses/week. "
@@ -61,7 +61,7 @@ _FINDINGS = [
         "description": (
             "Code42 Incydr endpoint DLP detected a USB mass storage device (WD My Passport 2TB, "
             "serial: WX31A78B5234) connected to workstation ASSET-WS-3821 (assigned to "
-            "senior architect bpatel@corp.com) at 16:22 UTC on January 19 — bpatel's "
+            "senior architect redacted_user) at 16:22 UTC on January 19 — bpatel's "
             "confirmed last day of employment. "
             "541 files were copied to the device totaling 8.3 GB: product architecture documents "
             "(83 .vsdx and .drawio files), AWS infrastructure Terraform configurations "
@@ -97,9 +97,9 @@ _FINDINGS = [
         "provider": "microsoft_purview",
         "title": "Mass Email Forward to Personal Account Before Resignation",
         "description": (
-            "Microsoft Purview Communication Compliance detected that user mwilliams@corp.com "
+            "Microsoft Purview Communication Compliance detected that user redacted_user "
             "created an Outlook inbox rule on January 13 that auto-forwards all incoming email "
-            "to personal account m.williams.personal@gmail.com. "
+            "to personal account redacted_user. "
             "Since the rule was created, 1,247 emails have been forwarded including: "
             "board meeting minutes, M&A due diligence requests, client contract negotiations, "
             "and product pricing discussions. "
@@ -112,7 +112,7 @@ _FINDINGS = [
         "severity": "CRITICAL",
         "resource_id": "user-mwilliams-m365-id-00j1k2l3",
         "resource_type": "M365User",
-        "resource_name": "mwilliams@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (
@@ -135,7 +135,7 @@ _FINDINGS = [
         "provider": "microsoft_purview",
         "title": "Sensitive Document Printed 47 Times in One Day — Potential Physical Exfiltration",
         "description": (
-            "Microsoft Purview detected that user gnavarro@corp.com sent 47 print jobs "
+            "Microsoft Purview detected that user redacted_user sent 47 print jobs "
             "for document 'M&A_Target_Analysis_CONFIDENTIAL_v3.pdf' (sensitivity label: "
             "CONFIDENTIAL — do not distribute) to printer PR-FLOOR3-EXEC-01 (executive floor) "
             "between 09:15–14:47 UTC. Each print job was for the full 24-page document "
@@ -173,7 +173,7 @@ _FINDINGS = [
         "provider": "dtex",
         "title": "VPN Connection at 2AM from Unusual Location — Employee in Non-Travel Role",
         "description": (
-            "DTEX detected a VPN connection for user fpham@corp.com at 02:14 AM from "
+            "DTEX detected a VPN connection for user redacted_user at 02:14 AM from "
             "IP 188.165.44.22 (OVH SAS datacenter, Roubaix, France). "
             "fpham is a finance analyst with no travel requirements and has never connected "
             "from outside the US in 18 months of employment. "
@@ -189,7 +189,7 @@ _FINDINGS = [
         "severity": "CRITICAL",
         "resource_id": "user-fpham-aad-objectid-00m4n5o6",
         "resource_type": "AzureADUser",
-        "resource_name": "fpham@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (
@@ -212,7 +212,7 @@ _FINDINGS = [
         "provider": "code42",
         "title": "Competitive Intelligence Database Access Spike — 340% Above Baseline",
         "description": (
-            "Code42 Incydr detected that user rmcallister@corp.com (Sales Director) accessed "
+            "Code42 Incydr detected that user redacted_user (Sales Director) accessed "
             "the competitive intelligence SharePoint library 'CompetitiveIntel-RESTRICTED' "
             "89 times in the past 7 days, compared to a 90-day baseline of 6 accesses/week. "
             "This represents a 340% spike. Documents accessed include current win/loss analysis "

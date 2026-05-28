@@ -48,7 +48,7 @@ CHANNEL_CONFIGS = [
     {
         "id": "cfg-teams-incident-003",
         "channel_type": "teams",
-        "channel_id": "19:incident-response-channel@thread.tacv2",
+        "channel_id": "19:redacted_user2",
         "channel_name": "Incident Response",
         "webhook_url": "https://company.webhook.office.com/webhookb2/placeholder_incident_response",
         "bot_token": "placeholder-teams-bot-token-incident",
@@ -61,7 +61,7 @@ CHANNEL_CONFIGS = [
     {
         "id": "cfg-teams-exec-brief-004",
         "channel_type": "teams",
-        "channel_id": "19:exec-security-briefing@thread.tacv2",
+        "channel_id": "19:redacted_user2",
         "channel_name": "Executive Security Briefing",
         "webhook_url": "https://company.webhook.office.com/webhookb2/placeholder_exec_briefing",
         "bot_token": "placeholder-teams-bot-token-exec",
@@ -93,7 +93,7 @@ CHANNEL_IDENTITIES = [
     {
         "channel_type": "slack",
         "platform_user_id": "U0ALICE0001",
-        "platform_email": "alice@company.com",
+        "platform_email": "redacted_user",
         "platform_name": "Alice Chen",
         "regentclaw_role": "admin",
         "is_trusted": True,
@@ -107,7 +107,7 @@ CHANNEL_IDENTITIES = [
     {
         "channel_type": "slack",
         "platform_user_id": "U0BOB00002",
-        "platform_email": "bob@company.com",
+        "platform_email": "redacted_user",
         "platform_name": "Bob Martinez",
         "regentclaw_role": "engineer",
         "is_trusted": True,
@@ -121,7 +121,7 @@ CHANNEL_IDENTITIES = [
     {
         "channel_type": "teams",
         "platform_user_id": "29:1alice-teams-aad-object-id",
-        "platform_email": "alice@company.com",
+        "platform_email": "redacted_user",
         "platform_name": "Alice Chen",
         "regentclaw_role": "admin",
         "is_trusted": True,
@@ -135,7 +135,7 @@ CHANNEL_IDENTITIES = [
     {
         "channel_type": "slack",
         "platform_user_id": "U0CAROL0003",
-        "platform_email": "carol@company.com",
+        "platform_email": "redacted_user",
         "platform_name": "Carol Singh",
         "regentclaw_role": "analyst",
         "is_trusted": True,
@@ -149,7 +149,7 @@ CHANNEL_IDENTITIES = [
     {
         "channel_type": "slack",
         "platform_user_id": "U0EVE00005",
-        "platform_email": "eve.contractor@external.io",
+        "platform_email": "redacted_user",
         "platform_name": "Eve (Contractor)",
         "regentclaw_role": "readonly",
         "is_trusted": False,

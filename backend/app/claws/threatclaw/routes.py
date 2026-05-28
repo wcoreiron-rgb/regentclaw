@@ -21,7 +21,7 @@ _FINDINGS = [
         "title": "C2 Communication Detected to Known Malware Domain (Cobalt Strike Beacon)",
         "description": (
             "CrowdStrike Falcon X detected an active C2 communication channel from endpoint "
-            "ASSET-WS-2241 (assigned to user jsmith@corp.com) to domain 'cdn-update-service[.]net' "
+            "ASSET-WS-2241 (assigned to user redacted_user) to domain 'cdn-update-service[.]net' "
             "(IP: 91.108.4.182) on port 443. This domain has been classified as a Cobalt Strike C2 "
             "team server by Recorded Future (confidence: 98%) and is listed in CrowdStrike's "
             "adversary intelligence as affiliated with the TA505 threat actor group. "
@@ -42,7 +42,7 @@ _FINDINGS = [
             "1. Immediately network-isolate ASSET-WS-2241 via CrowdStrike Network Contain. "
             "2. Block 91.108.4.182 and cdn-update-service[.]net at perimeter firewall and DNS sinkhole. "
             "3. Preserve memory dump and disk image of ASSET-WS-2241 for forensic analysis. "
-            "4. Revoke all active tokens for jsmith@corp.com and force re-authentication. "
+            "4. Revoke all active tokens for redacted_user and force re-authentication. "
             "5. Search all endpoints for the same macro document hash and C2 beacon signature. "
             "6. Review email gateway for the phishing campaign — block sender domain and scan for lateral spread."
         ),
@@ -184,7 +184,7 @@ _FINDINGS = [
         "severity": "HIGH",
         "resource_id": "finance-team-email-group",
         "resource_type": "EmailGroup",
-        "resource_name": "finance@corp.com",
+        "resource_name": "redacted_user",
         "region": "us-east-1",
         "status": "OPEN",
         "remediation": (

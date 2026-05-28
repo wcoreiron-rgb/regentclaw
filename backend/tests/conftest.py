@@ -71,7 +71,7 @@ async def client(db_session):
         app.dependency_overrides[get_current_user] = lambda: {
             "id": "test-user",
             "sub": "test-user",
-            "email": "test@test.com",
+            "email": "redacted_user",
             "role": "admin",
         }
     except ImportError:

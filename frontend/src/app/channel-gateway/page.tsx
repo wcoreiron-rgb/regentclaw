@@ -194,7 +194,7 @@ function SimulatePanel({ onResult }: { onResult: (r: any) => void }) {
     channel_type: 'slack',
     channel_id:   'C-general',
     sender_id:    'U-demo-analyst',
-    sender_email: 'analyst@acme.com',
+    sender_email: 'redacted_user',
     sender_name:  'Demo Analyst',
     message_text: 'Scan all cloud connectors for misconfigurations',
   });
@@ -206,7 +206,7 @@ function SimulatePanel({ onResult }: { onResult: (r: any) => void }) {
     'Rotate all expired credentials in AccessClaw',
     'Run the ransomware containment workflow',
     'Give me a security status report',
-    'Disable the account for jsmith@acme.com',
+    'Disable the account for redacted_user',
   ];
 
   const submit = async () => {

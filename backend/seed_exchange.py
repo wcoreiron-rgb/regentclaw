@@ -15,9 +15,9 @@ Base.metadata.create_all(bind=engine)
 
 PUBLISHERS = [
     {
-        "id": "pub-ascend", "name": "Ascend Technologies", "slug": "ascend",
+        "id": "pub-regentclaw", "name": "RegentClaw Labs", "slug": "regentclaw",
         "description": "Official RegentClaw security modules and reference implementations.",
-        "website": "https://ascend.tech", "tier": "official", "is_verified": True,
+        "website": "https://regentclaw.local", "tier": "official", "is_verified": True,
         "pgp_fingerprint": "CAFE DEAD BEEF 0001 ABCD EF12 3456 7890 AABB CCDD",
         "total_packages": 8, "avg_trust_score": 98.0,
     },
@@ -53,9 +53,9 @@ PUBLISHERS = [
 
 
 PACKAGES = [
-    # ── Official Ascend packs ──────────────────────────────────────────────
+    # ── Official publisher packs ───────────────────────────────────────────
     {
-        "id": "pkg-001", "publisher_id": "pub-ascend", "publisher_name": "Ascend Technologies",
+        "id": "pkg-001", "publisher_id": "pub-regentclaw", "publisher_name": "RegentClaw Labs",
         "name": "Zero Trust Core Policies", "slug": "zt-core-policies",
         "package_type": "policy_pack", "category": "Zero Trust", "is_official": True,
         "tags": ["zero-trust", "policies", "core", "compliance"],
@@ -76,7 +76,7 @@ PACKAGES = [
         },
     },
     {
-        "id": "pkg-002", "publisher_id": "pub-ascend", "publisher_name": "Ascend Technologies",
+        "id": "pkg-002", "publisher_id": "pub-regentclaw", "publisher_name": "RegentClaw Labs",
         "name": "SOC2 Type II Evidence Pack", "slug": "soc2-evidence-pack",
         "package_type": "policy_pack", "category": "Compliance", "is_official": True,
         "tags": ["soc2", "compliance", "evidence", "audit"],
@@ -96,7 +96,7 @@ PACKAGES = [
         },
     },
     {
-        "id": "pkg-003", "publisher_id": "pub-ascend", "publisher_name": "Ascend Technologies",
+        "id": "pkg-003", "publisher_id": "pub-regentclaw", "publisher_name": "RegentClaw Labs",
         "name": "AI Security Hardening Pack", "slug": "ai-security-hardening",
         "package_type": "skill_pack", "category": "AI Security", "is_official": True,
         "tags": ["ai", "llm", "arcclaw", "hardening", "model-security"],

@@ -93,13 +93,13 @@ SIMULATED_FINDINGS = [
     {
         "title": "Service Account Has Project Owner Role",
         "description": (
-            "Service account 'sa-app-backend@my-prod-123456.iam.gserviceaccount.com' "
+            "Service account 'redacted_user' "
             "has the 'roles/owner' role at the project level. "
             "This violates least-privilege — the account has unrestricted access to all resources."
         ),
         "category": "misconfiguration",
         "severity": "critical",
-        "resource_id": "//iam.googleapis.com/projects/my-prod-123456/serviceAccounts/sa-app-backend@my-prod-123456.iam.gserviceaccount.com",
+        "resource_id": "//iam.googleapis.com/projects/my-prod-123456/serviceAccounts/redacted_user",
         "resource_type": "service_account",
         "resource_name": "sa-app-backend",
         "region": "global",

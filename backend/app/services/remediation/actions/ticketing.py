@@ -121,7 +121,7 @@ async def _create_pd_incident(params: dict, creds: dict, context: dict) -> Actio
         "Authorization":  f"Token token={creds['pd_api_token']}",
         "Content-Type":   "application/json",
         "Accept":         "application/vnd.pagerduty+json;version=2",
-        "From":           params.get("from_email", "regentclaw@your-org.com"),
+        "From":           params.get("from_email", "redacted_user"),
     }
 
     async with httpx.AsyncClient(timeout=30) as client:

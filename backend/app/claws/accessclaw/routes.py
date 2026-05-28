@@ -103,8 +103,8 @@ _FINDINGS = [
         "provider": "okta",
         "title": "Okta Super Admin Without Phishing-Resistant MFA — 4 Accounts Affected",
         "description": (
-            "4 Okta super administrator accounts (admin@corp.com, itadmin@corp.com, "
-            "sysadmin@corp.com, ops-admin@corp.com) are enrolled with TOTP (Google Authenticator) "
+            "4 Okta super administrator accounts (redacted_user, redacted_user, "
+            "redacted_user, redacted_user) are enrolled with TOTP (Google Authenticator) "
             "as their only MFA method. Super admins can modify all Okta policies, users, and "
             "application configurations. TOTP is vulnerable to real-time phishing via adversary-in-the-middle "
             "(AiTM) proxy attacks — a technique used in the 2022 Twilio/Okta breach. "
@@ -178,8 +178,8 @@ _FINDINGS = [
         "title": "Entra ID PIM Not Enabled for Global Admin — 6 Standing Permanent Assignments",
         "description": (
             "Microsoft Entra ID (formerly Azure AD) Global Administrator role has 6 permanent "
-            "assignments: cto@corp.com, it-director@corp.com, azure-admin@corp.com, "
-            "corp-admin@corp.com, global-admin-sa@corp.com, and cloudops@corp.com. "
+            "assignments: redacted_user, redacted_user, redacted_user, "
+            "redacted_user, redacted_user, and redacted_user. "
             "Privileged Identity Management (PIM) is not configured for this role, meaning all 6 "
             "users have standing 24/7 Global Admin privilege without activation approval workflows, "
             "justification requirements, or time-bound sessions. Microsoft Secure Score penalizes "

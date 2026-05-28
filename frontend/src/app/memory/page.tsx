@@ -233,7 +233,7 @@ function NewIncidentModal({ onClose, onCreated }: { onClose: () => void; onCreat
               value={form.assigned_to}
               onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
               className="w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-xl px-3 py-2 outline-none"
-              placeholder="analyst@company.com"
+              placeholder="redacted_user"
             />
           </div>
         </div>

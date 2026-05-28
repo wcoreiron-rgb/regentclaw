@@ -190,10 +190,10 @@ _FINDINGS = [
         "id": "sc-006",
         "claw": "saasclaw",
         "provider": "mcas",
-        "title": "Admin Account Without MFA in Slack Workspace (workspace-admin@acme.com)",
+        "title": "Admin Account Without MFA in Slack Workspace (redacted_user)",
         "description": (
             "Slack audit log review via MDCA shows that the primary Slack workspace admin account "
-            "'workspace-admin@acme.com' does not have multi-factor authentication enabled. "
+            "'redacted_user' does not have multi-factor authentication enabled. "
             "This account has full administrative rights: can export all message history, add/remove "
             "members, install apps, and modify security settings. The account uses a password that "
             "was last changed 14 months ago. Slack admin compromise is a top-tier phishing target "
@@ -202,13 +202,13 @@ _FINDINGS = [
         ),
         "category": "authentication",
         "severity": "HIGH",
-        "resource_id": "slack-workspace-acme/workspace-admin@acme.com",
+        "resource_id": "slack-workspace-acme/redacted_user",
         "resource_type": "SlackUser",
-        "resource_name": "workspace-admin@acme.com (Slack Admin)",
+        "resource_name": "redacted_user (Slack Admin)",
         "region": "global",
         "status": "OPEN",
         "remediation": (
-            "1. Immediately enable MFA (TOTP or hardware key) for workspace-admin@acme.com. "
+            "1. Immediately enable MFA (TOTP or hardware key) for redacted_user. "
             "2. Enforce MFA for all workspace admins and owners via Slack Admin settings. "
             "3. Rotate the admin account password. "
             "4. Configure Slack's SSO via Okta/Azure AD so admin access flows through corporate IdP with MFA. "
@@ -226,7 +226,7 @@ _FINDINGS = [
         "provider": "mcas",
         "title": "Mass Download from SharePoint: User Downloaded 2,300 Files in 4 Hours",
         "description": (
-            "MDCA anomaly detection triggered on user 'j.contractor@acme.com' who performed a "
+            "MDCA anomaly detection triggered on user 'redacted_user' who performed a "
             "mass download activity: 2,300 files (14.7 GB) downloaded from the SharePoint site "
             "'Corp-Confidential-Internal' between 02:00 and 06:00 UTC — outside normal working hours. "
             "The user is a contractor whose contract ends in 3 days. Downloaded files include "
@@ -242,7 +242,7 @@ _FINDINGS = [
         "region": "global",
         "status": "OPEN",
         "remediation": (
-            "1. Immediately suspend j.contractor@acme.com's M365 account and revoke all active sessions. "
+            "1. Immediately suspend redacted_user's M365 account and revoke all active sessions. "
             "2. Invoke the incident response process — this is a potential insider threat / data theft case. "
             "3. Preserve MDCA audit logs and SharePoint access logs as evidence. "
             "4. Conduct a legal review on notifying affected customers if their data was in the download. "

@@ -442,7 +442,7 @@ CREDENTIAL_FIELDS: dict[str, list[dict]] = {
     "zscaler": [
         {"name": "cloud",     "label": "Zscaler Cloud", "type": "text",   "hint": "zsapi.zscaler.net"},
         {"name": "api_key",   "label": "API Key",       "type": "secret", "hint": "Zscaler API key"},
-        {"name": "username",  "label": "Username",      "type": "text",   "hint": "admin@yourorg.com"},
+        {"name": "username",  "label": "Username",      "type": "text",   "hint": "redacted_user"},
         {"name": "password",  "label": "Password",      "type": "secret", "hint": "Admin password"},
     ],
     "cloudflare": [
@@ -484,7 +484,7 @@ CREDENTIAL_FIELDS: dict[str, list[dict]] = {
     "ms_teams":    [{"name": "webhook_url", "label": "Incoming Webhook URL", "type": "text", "hint": "https://yourorg.webhook.office.com/..."}],
     "jira": [
         {"name": "domain",    "label": "Jira Domain", "type": "text",   "hint": "yourorg.atlassian.net"},
-        {"name": "email",     "label": "Email",       "type": "text",   "hint": "you@yourorg.com"},
+        {"name": "email",     "label": "Email",       "type": "text",   "hint": "redacted_user"},
         {"name": "api_token", "label": "API Token",   "type": "secret", "hint": "Atlassian API token"},
     ],
     "pagerduty":   [{"name": "routing_key", "label": "Events API v2 Routing Key", "type": "secret", "hint": "32-char routing key"}],

@@ -40,7 +40,7 @@ _USERS: dict[str, dict] = {
     _ADMIN_USERNAME: {
         "sub":      _ADMIN_USERNAME,
         "role":     "admin",
-        "email":    _os.getenv("ADMIN_EMAIL", "admin@regentclaw.local"),
+        "email":    _os.getenv("ADMIN_EMAIL", "redacted_user"),
         "hashed_password": _ADMIN_HASH,
     },
 }

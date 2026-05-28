@@ -98,7 +98,7 @@ async def send_email(
         smtp_port:  Port — 25 (plain), 465 (SSL), or 587 (STARTTLS).
         username:   SMTP auth username.
         password:   SMTP auth password or app-specific password.
-        from_addr:  Sender address (e.g. "alerts@regentclaw.example.com").
+        from_addr:  Sender address (e.g. "redacted_user").
         to_addrs:   List of recipient email addresses.
         subject:    Email subject line.
         body:       Plain-text body (always included).

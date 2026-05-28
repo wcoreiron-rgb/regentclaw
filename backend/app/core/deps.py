@@ -25,7 +25,7 @@ from app.core.security import decode_access_token
 _DEV_USER = {
     "sub": "dev-admin",
     "role": "admin",
-    "email": "admin@regentclaw.local",
+    "email": "redacted_user",
     "debug_bypass": True,
 }
 

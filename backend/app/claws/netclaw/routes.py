@@ -143,7 +143,7 @@ _FINDINGS = [
             "tier (10.0.3.0/24) and the database tier (10.0.5.0/24). Web servers can initiate "
             "connections to any port on any database host. The intended architecture requires "
             "traffic to traverse an application firewall policy zone, but a misconfigured 'any-any' "
-            "rule (rule ID: PA-RULE-0047, created 2023-08-12 by admin@corp.com with comment "
+            "rule (rule ID: PA-RULE-0047, created 2023-08-12 by redacted_user with comment "
             "'temporary — remove after testing') was never deleted and has been in production "
             "for 5 months."
         ),

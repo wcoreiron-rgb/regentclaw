@@ -55,7 +55,7 @@ SIMULATED_FINDINGS = [
     {
         "title": "Okta: Suspicious Login — Multiple Countries in 24h",
         "description": (
-            "User j.doe@company.com authenticated from US (9:02 AM) and Russia (9:47 AM) within 45 minutes — "
+            "User redacted_user authenticated from US (9:02 AM) and Russia (9:47 AM) within 45 minutes — "
             "physically impossible travel. Potential account takeover or credential sharing."
         ),
         "category": "suspicious_login",
