@@ -7,16 +7,30 @@
 <p align="center">Modular, governed security ecosystem with Zero Trust enforcement across every module, agent, and workflow.</p>
 
 <p align="center">
-  <a href="https://wcoreiron-rgb.github.io/regentclaw/">📄 Documentation</a> &nbsp;·&nbsp;
-  <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html">🛠 Technical Docs</a> &nbsp;·&nbsp;
-  <a href="http://localhost:3000">🖥 Dashboard (local)</a>
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/">
+    <img src="https://img.shields.io/badge/Documentation-1f2937?style=for-the-badge&logo=gitbook&logoColor=white" alt="Documentation" />
+  </a>
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html">
+    <img src="https://img.shields.io/badge/Technical%20Docs-2563eb?style=for-the-badge&logo=readthedocs&logoColor=white" alt="Technical Docs" />
+  </a>
+  <a href="http://localhost:3000">
+    <img src="https://img.shields.io/badge/Dashboard%20(local)-0f766e?style=for-the-badge&logo=vercel&logoColor=white" alt="Dashboard (local)" />
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/wcoreiron-rgb/regentclaw/projects">Roadmap 2026</a> &nbsp;·&nbsp;
-  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=bug&title=%5BBug%5D+">Report Bug</a> &nbsp;·&nbsp;
-  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=enhancement&title=%5BFeature%5D+">Request Feature</a> &nbsp;·&nbsp;
-  <a href="https://github.com/wcoreiron-rgb/regentclaw/discussions">GitHub Discussions</a>
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/projects">
+    <img src="https://img.shields.io/badge/Roadmap%202026-7c3aed?style=for-the-badge&logo=githubprojects&logoColor=white" alt="Roadmap 2026" />
+  </a>
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=bug&title=%5BBug%5D+">
+    <img src="https://img.shields.io/badge/Report%20Bug-dc2626?style=for-the-badge&logo=github&logoColor=white" alt="Report Bug" />
+  </a>
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=enhancement&title=%5BFeature%5D+">
+    <img src="https://img.shields.io/badge/Request%20Feature-2563eb?style=for-the-badge&logo=github&logoColor=white" alt="Request Feature" />
+  </a>
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/discussions">
+    <img src="https://img.shields.io/badge/GitHub%20Discussions-0f766e?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Discussions" />
+  </a>
 </p>
 
 <p align="center">
@@ -30,9 +44,15 @@
 
 <p align="center"><strong>Full Documentation</strong></p>
 <p align="center">
-  <a href="https://wcoreiron-rgb.github.io/regentclaw/">🚀 Quick Start</a> &nbsp;·&nbsp;
-  <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html#architecture">📋 Specifications</a> &nbsp;·&nbsp;
-  <a href="https://wcoreiron-rgb.github.io/regentclaw/changelog.html">📝 Changelog</a>
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/">
+    <img src="https://img.shields.io/badge/Quick%20Start-f59e0b?style=for-the-badge&logo=rocket&logoColor=white" alt="Quick Start" />
+  </a>
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html#architecture">
+    <img src="https://img.shields.io/badge/Specifications-0891b2?style=for-the-badge&logo=bookstack&logoColor=white" alt="Specifications" />
+  </a>
+  <a href="https://wcoreiron-rgb.github.io/regentclaw/changelog.html">
+    <img src="https://img.shields.io/badge/Changelog-4f46e5?style=for-the-badge&logo=readme&logoColor=white" alt="Changelog" />
+  </a>
 </p>
 
 <p align="center"><strong>Languages</strong></p>
