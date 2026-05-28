@@ -54,12 +54,12 @@
 
 <p align="center"><strong>Languages</strong></p>
 <p align="center">
-  Python 62.8% &nbsp;·&nbsp;
-  TypeScript 36.5% &nbsp;·&nbsp;
-  Shell 0.4% &nbsp;·&nbsp;
-  CSS 0.3% &nbsp;·&nbsp;
-  JavaScript 0.0% &nbsp;·&nbsp;
-  Mako 0.0%
+  <img src="https://img.shields.io/badge/Python-62.8%25-3776AB?logo=python&logoColor=white" alt="Python 62.8%" />
+  <img src="https://img.shields.io/badge/TypeScript-36.5%25-3178C6?logo=typescript&logoColor=white" alt="TypeScript 36.5%" />
+  <img src="https://img.shields.io/badge/Shell-0.4%25-121011?logo=gnubash&logoColor=white" alt="Shell 0.4%" />
+  <img src="https://img.shields.io/badge/CSS-0.3%25-1572B6?logo=css3&logoColor=white" alt="CSS 0.3%" />
+  <img src="https://img.shields.io/badge/JavaScript-0.0%25-F7DF1E?logo=javascript&logoColor=black" alt="JavaScript 0.0%" />
+  <img src="https://img.shields.io/badge/Mako-0.0%25-8B5CF6" alt="Mako 0.0%" />
 </p>
 
 ## Architecture
