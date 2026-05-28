@@ -32,24 +32,7 @@
 <p align="center">
   <a href="https://wcoreiron-rgb.github.io/regentclaw/">🚀 Quick Start</a> &nbsp;·&nbsp;
   <a href="https://wcoreiron-rgb.github.io/regentclaw/docs.html#architecture">📋 Specifications</a> &nbsp;·&nbsp;
-  <a href="https://pypi.org/project/regentclaw/">📦 PyPI</a> &nbsp;·&nbsp;
   <a href="https://wcoreiron-rgb.github.io/regentclaw/changelog.html">📝 Changelog</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" />
-  <img src="https://img.shields.io/badge/PyPI-planned-lightgrey" alt="PyPI planned" />
-  <img src="https://img.shields.io/badge/npm-planned-lightgrey" alt="npm planned" />
-  <img src="https://img.shields.io/badge/NuGet-planned-lightgrey" alt="NuGet planned" />
-  <a href="https://securityscorecards.dev/viewer/?uri=github.com/wcoreiron-rgb/regentclaw">
-    <img src="https://img.shields.io/badge/OpenSSF-Scorecard-blue" alt="OpenSSF Scorecard" />
-  </a>
-  <a href="https://www.bestpractices.dev/">
-    <img src="https://img.shields.io/badge/OpenSSF-Best%20Practices-blueviolet" alt="OpenSSF Best Practices" />
-  </a>
-  <a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/">
-    <img src="https://img.shields.io/badge/OWASP-Agentic%20Top%2010-red" alt="OWASP Agentic Top 10" />
-  </a>
 </p>
 
 <p align="center"><strong>Languages</strong></p>
