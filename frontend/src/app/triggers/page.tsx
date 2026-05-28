@@ -6,8 +6,7 @@ import {
   ChevronDown, ChevronRight, CheckCircle, XCircle,
   RefreshCw, Play, Clock,
 } from 'lucide-react';
-import RiskBadge from '@/components/RiskBadge';
-import { getTriggers, getTriggerStats, createTrigger, updateTrigger, deleteTrigger, getWorkflows } from '@/lib/api';
+import { getTriggers, getTriggerStats, createTrigger, updateTrigger, deleteTrigger, getWorkflows, testTrigger } from '@/lib/api';
 import ClientDate from '@/components/ClientDate';
 
 // ─── Trigger type metadata ────────────────────────────────────────────────────
@@ -58,6 +57,8 @@ export default function TriggersPage() {
   const [saving, setSaving]         = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch]         = useState('');
+  const [testingId, setTestingId]   = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, any>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,32 @@ export default function TriggersPage() {
     if (!confirm('Delete this trigger?')) return;
     await deleteTrigger(id);
     await load();
+  };
+
+  const runTest = async (trigger: any) => {
+    setTestingId(trigger.id);
+    const samplePayload = {
+      source_module: trigger.source_filter || 'identityclaw',
+      severity: trigger.severity_min || 'high',
+      risk_score: 80,
+      category: trigger.category || 'detection',
+      outcome: 'allowed',
+      action: 'simulated_test',
+      provider: 'test-provider',
+      claw: trigger.target_claw || 'identityclaw',
+    };
+    try {
+      const result = await testTrigger(trigger.id, samplePayload);
+      setTestResults(prev => ({ ...prev, [trigger.id]: result }));
+      await load();
+    } catch (error: any) {
+      setTestResults(prev => ({
+        ...prev,
+        [trigger.id]: { matched: false, error: error?.message || 'Test failed' },
+      }));
+    } finally {
+      setTestingId(null);
+    }
   };
 
   // ── Form submission ────────────────────────────────────────────────────────
@@ -366,6 +393,22 @@ export default function TriggersPage() {
                         {trigger.trigger_type === 'webhook_inbound' && (
                           <span className="text-cyan-400">
                             Webhook URL: /api/v1/triggers/webhook/{trigger.id}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-1 flex items-center gap-3">
+                        <button
+                          onClick={() => runTest(trigger)}
+                          disabled={testingId === trigger.id}
+                          className="inline-flex items-center gap-1.5 rounded border border-yellow-800 bg-yellow-950/40 px-2.5 py-1 text-xs text-yellow-300 hover:bg-yellow-900/40 disabled:opacity-60"
+                        >
+                          {testingId === trigger.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                          Test Trigger
+                        </button>
+                        {testResults[trigger.id] && (
+                          <span className={`text-xs ${testResults[trigger.id].matched ? 'text-green-300' : 'text-red-300'}`}>
+                            {testResults[trigger.id].matched ? 'Matched sample payload' : (testResults[trigger.id].error || 'Did not match sample payload')}
                           </span>
                         )}
                       </div>
