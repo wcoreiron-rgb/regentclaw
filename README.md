@@ -12,6 +12,32 @@
   <a href="http://localhost:3000">🖥 Dashboard (local)</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/projects">Roadmap 2026</a> &nbsp;·&nbsp;
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=bug&title=%5BBug%5D+">Report Bug</a> &nbsp;·&nbsp;
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/issues/new?labels=enhancement&title=%5BFeature%5D+">Request Feature</a> &nbsp;·&nbsp;
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/discussions">GitHub Discussions</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/wcoreiron-rgb/regentclaw/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/wcoreiron-rgb/regentclaw/ci.yml?branch=main&label=Build%20and%20Test%20(Unit%20%2B%20E2E)" alt="Build and Test (Unit + E2E)" />
+  </a>
+  <a href="https://codecov.io/gh/wcoreiron-rgb/regentclaw">
+    <img src="https://img.shields.io/codecov/c/github/wcoreiron-rgb/regentclaw?label=codecov" alt="codecov" />
+  </a>
+</p>
+
+<p align="center"><strong>Languages</strong></p>
+<p align="center">
+  Python 62.8% &nbsp;·&nbsp;
+  TypeScript 36.5% &nbsp;·&nbsp;
+  Shell 0.4% &nbsp;·&nbsp;
+  CSS 0.3% &nbsp;·&nbsp;
+  JavaScript 0.0% &nbsp;·&nbsp;
+  Mako 0.0%
+</p>
+
 ## Architecture
 
 ```
