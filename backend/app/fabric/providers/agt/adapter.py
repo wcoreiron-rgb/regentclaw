@@ -61,9 +61,25 @@ class AGTAdapter:
         return asdict(result)
 
     def scan_path(self, path: str) -> dict[str, Any]:
-        result = scan_module_directory(path)
+        resolved = Path(path).resolve(strict=False)
+        repo_root = Path(__file__).resolve().parents[4]
+        try:
+            resolved.relative_to(repo_root)
+        except Exception:
+            return {
+                "is_safe": False,
+                "risk_score": 100.0,
+                "findings": [],
+                "critical_count": 0,
+                "high_count": 0,
+                "agt_used": True,
+                "path": str(repo_root),
+                "error": "Path outside repository root",
+            }
+
+        result = scan_module_directory(str(resolved))
         payload = asdict(result)
-        payload["path"] = str(Path(path).resolve())
+        payload["path"] = str(resolved)
         return payload
 
     def send_secure_message(

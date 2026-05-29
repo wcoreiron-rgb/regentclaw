@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # ── AGT availability check ───────────────────────────────────────────────────
 
@@ -281,7 +282,13 @@ def scan_module_directory(directory_path: str) -> ModuleScanResult:
 
     try:
         scanner = SecurityScanner()
-        path = Path(directory_path)
+        try:
+            path = Path(directory_path).resolve(strict=False)
+            path.relative_to(_REPO_ROOT)
+        except Exception:
+            logger.warning("Rejected AGT module scan path outside repository root")
+            return ModuleScanResult(is_safe=False, risk_score=100.0, agt_used=True)
+
         if not path.exists() or not path.is_dir():
             return ModuleScanResult(is_safe=True, risk_score=0.0, agt_used=True)
 

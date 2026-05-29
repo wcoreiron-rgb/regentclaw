@@ -152,13 +152,14 @@ async def _call_endpoint(
             "data": extracted,
             "raw_preview": str(body_json)[:500] if not isinstance(body_json, (dict, list)) else None,
         }
-    except Exception as exc:
+    except Exception:
+        logger.exception("CustomClaw endpoint call failed")
         return {
             "endpoint": ep.get("name"),
             "url": url,
             "method": method,
             "success": False,
-            "error": str(exc),
+            "error": "endpoint call failed",
         }
 
 
@@ -293,7 +294,7 @@ async def scan_definition(def_id: str, db: AsyncSession = Depends(get_db)):
             processed.append({
                 "endpoint": endpoints[i].get("name", f"ep-{i}"),
                 "success": False,
-                "error": str(r),
+                "error": "endpoint call failed",
             })
         else:
             processed.append(r)

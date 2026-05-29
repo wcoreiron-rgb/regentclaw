@@ -135,8 +135,8 @@ async def run_scan(db: AsyncSession = Depends(get_db)):
             total_updated += summary["updated"]
         except Exception as exc:
             logger.error("EndpointClaw scan failed for %s: %s", provider_name, exc)
-            errors.append({"provider": provider_name, "error": str(exc)})
-            provider_results[provider_name] = {"status": "error", "error": str(exc)}
+            errors.append({"provider": provider_name, "error": "provider scan failed"})
+            provider_results[provider_name] = {"status": "error", "error": "provider scan failed"}
 
     return {
         "status": "completed" if not errors else "completed_with_errors",

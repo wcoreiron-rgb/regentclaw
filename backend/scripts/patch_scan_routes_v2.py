@@ -11,7 +11,6 @@ Strategy: Replace the entire scan function body with one that:
 Run: cd backend && python scripts/patch_scan_routes_v2.py
 """
 import os
-import re
 
 BASE = os.path.join(os.path.dirname(__file__), "..", "app", "claws")
 SKIP_CLAWS = {"cloudclaw", "exposureclaw", "threatclaw", "endpointclaw", "arcclaw", "identityclaw"}
@@ -63,23 +62,17 @@ def patch_file(routes_path: str, claw_name: str) -> bool:
     claw_label = claw_name.replace("claw", " Claw").title()
     new_body = NEW_SCAN_BODY.format(claw_label=claw_label)
 
-    # Pattern 1: scan returns len(_FINDINGS) — simple stub
-    pattern1 = (
-        r'@router\.post\("/scan"[^)]*\)\s*\nasync def run_scan\(db: AsyncSession = Depends\(get_db\)\):\s*\n'
-        r'(?:    (?!"""|\s*from|\s*#).*\n)*'
-        r'    return \{[^}]*"findings_created": len\(_FINDINGS\)[^}]*\}\s*\n'
-    )
+    scan_marker = '@router.post("/scan"'
+    start = content.find(scan_marker)
+    if start == -1:
+        return False
 
-    # Pattern 2: scan counts _FINDINGS but doesn't persist
-    pattern2 = (
-        r'@router\.post\("/scan"[^\n]*\)\s*\nasync def run_scan\(db: AsyncSession = Depends\(get_db\)\):\s*\n'
-        r'(?:    [^\n]*\n)*?'
-        r'    return \{(?:[^}]|\n)*?"findings_(?:created|evaluated)": (?:len\(_FINDINGS\)|[0-9]+)[^}]*\}(?:[^}]*\})?\s*\n'
-    )
+    next_router = content.find("\n@router.", start + len(scan_marker))
+    next_provider_map = content.find("\nPROVIDER_MAP", start + len(scan_marker))
 
-    new_content = re.sub(pattern1, new_body, content, flags=re.DOTALL)
-    if new_content == content:
-        new_content = re.sub(pattern2, new_body, content, flags=re.DOTALL)
+    ends = [i for i in (next_router, next_provider_map) if i != -1]
+    end = min(ends) if ends else len(content)
+    new_content = content[:start] + new_body.rstrip() + "\n\n" + content[end:].lstrip("\n")
 
     if new_content != content:
         with open(routes_path, "w") as f:
@@ -129,13 +122,17 @@ def main():
         claw_label = claw_dir.replace("claw", " Claw").title()
         new_body = NEW_SCAN_BODY.format(claw_label=claw_label)
 
-        # Replace from @router.post("/scan" to the next @router or PROVIDER_MAP
-        new_content = re.sub(
-            r'@router\.post\("/scan".*?(?=\n(?:PROVIDER_MAP|@router\.get|@router\.post|$))',
-            new_body.rstrip(),
-            content,
-            flags=re.DOTALL,
-        )
+        scan_marker = '@router.post("/scan"'
+        start = content.find(scan_marker)
+        if start == -1:
+            print(f"  ✗ Failed to patch {claw_dir}")
+            continue
+
+        next_router = content.find("\n@router.", start + len(scan_marker))
+        next_provider_map = content.find("\nPROVIDER_MAP", start + len(scan_marker))
+        ends = [i for i in (next_router, next_provider_map) if i != -1]
+        end = min(ends) if ends else len(content)
+        new_content = content[:start] + new_body.rstrip() + "\n\n" + content[end:].lstrip("\n")
 
         if new_content != content:
             with open(routes_path, "w") as f:

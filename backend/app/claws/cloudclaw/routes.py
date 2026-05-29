@@ -217,8 +217,8 @@ async def trigger_scan(db: AsyncSession = Depends(get_db)):
 
         except Exception as exc:
             logger.error("CloudClaw scan failed for %s: %s", provider_name, exc)
-            errors.append({"provider": provider_name, "error": str(exc)})
-            provider_results[provider_name] = {"status": "error", "error": str(exc)}
+            errors.append({"provider": provider_name, "error": "provider scan failed"})
+            provider_results[provider_name] = {"status": "error", "error": "provider scan failed"}
 
     status_msg = "completed" if not errors else "completed_with_errors"
     return {

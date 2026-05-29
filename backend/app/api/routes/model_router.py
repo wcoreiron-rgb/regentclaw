@@ -62,8 +62,9 @@ async def route_prompt(body: RouteRequest):
             context_labels=body.context_labels,
         )
         return result
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except Exception:
+        logger.exception("Model router call failed")
+        raise HTTPException(status_code=502, detail="Model provider request failed")
 
 
 @router.post("/classify", summary="Classify text data sensitivity (dry-run, no model call)")
@@ -99,8 +100,8 @@ def get_rules():
 def update_rule(body: RoutingRuleUpdate):
     try:
         update_routing_rule(body.sensitivity, body.provider)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid routing rule update")
     return {"updated": True, "sensitivity": body.sensitivity, "provider": body.provider}
 
 

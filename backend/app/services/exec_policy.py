@@ -5,34 +5,61 @@ needs approval, or should be blocked outright.
 """
 from __future__ import annotations
 
-import re
 from typing import Any
 
 # ─── risk patterns ────────────────────────────────────────────────────────────
 
 # Shell commands that require approval regardless of environment
-_APPROVAL_CMDS = re.compile(
-    r"\b(rm\s+-rf|chmod\s+777|chown|dd\s+if=|mkfs|fdisk|shutdown|reboot|"
-    r"iptables|ufw|systemctl\s+(stop|disable|mask)|"
-    r"kubectl\s+(delete|scale|rollout)\s+(deployment|statefulset|all)"
-    r"|helm\s+uninstall|terraform\s+(destroy|apply|import)"
-    r"|aws\s+(ec2|iam|s3|rds|lambda)\s+(delete|create|put|update))\b",
-    re.I,
+_APPROVAL_SNIPPETS = (
+    "rm -rf", "chmod 777", "chown", "dd if=", "mkfs", "fdisk", "shutdown", "reboot",
+    "iptables", "ufw", "systemctl stop", "systemctl disable", "systemctl mask",
+    "kubectl delete deployment", "kubectl delete statefulset", "kubectl delete all",
+    "kubectl scale deployment", "kubectl scale statefulset", "kubectl rollout deployment",
+    "kubectl rollout statefulset", "helm uninstall", "terraform destroy", "terraform apply",
+    "terraform import", "aws ec2 delete", "aws ec2 create", "aws ec2 put", "aws ec2 update",
+    "aws iam delete", "aws iam create", "aws iam put", "aws iam update", "aws s3 delete",
+    "aws s3 create", "aws s3 put", "aws s3 update", "aws rds delete", "aws rds create",
+    "aws rds put", "aws rds update", "aws lambda delete", "aws lambda create",
+    "aws lambda put", "aws lambda update",
 )
 
 # Shell commands that are always blocked
-_BLOCKED_CMDS = re.compile(
-    r"\b(curl\s+.*\|\s*sh|wget\s+.*\|\s*sh|bash\s+-c.*curl|"
-    r"python.*exec\(.*os\.|eval\s*\(|"
-    r"cat\s+/etc/shadow|cat\s+/etc/passwd.*grep\s+root|"
-    r"nc\s+-[el]|ncat|socat.*exec|"
-    r"base64\s+-d.*\|\s*(sh|bash)|"
-    r"export\s+AWS_SECRET|printenv.*SECRET|env.*TOKEN)\b",
-    re.I,
+_BLOCKED_SNIPPETS = (
+    "curl ", "| sh", "wget ", "bash -c", "eval(", "cat /etc/shadow", "cat /etc/passwd",
+    "grep root", "ncat", "socat", "base64 -d", "export aws_secret", "printenv",
 )
 
 # Production keywords
-_PROD_PATTERNS = re.compile(r"\b(prod|production|live|prd)\b", re.I)
+_PROD_WORDS = ("prod", "production", "live", "prd")
+
+
+def _contains_approval_pattern(command: str) -> bool:
+    c = command.lower()
+    return any(snippet in c for snippet in _APPROVAL_SNIPPETS)
+
+
+def _contains_blocked_pattern(command: str) -> bool:
+    c = command.lower()
+    if ("curl " in c or "wget " in c) and "| sh" in c:
+        return True
+    if "bash -c" in c and "curl " in c:
+        return True
+    if "python" in c and "exec(" in c and "os." in c:
+        return True
+    if "cat /etc/passwd" in c and "grep root" in c:
+        return True
+    if ("nc -e" in c) or ("nc -l" in c):
+        return True
+    if "base64 -d" in c and ("| sh" in c or "| bash" in c):
+        return True
+    if "printenv" in c and "secret" in c:
+        return True
+    return any(snippet in c for snippet in _BLOCKED_SNIPPETS)
+
+
+def _is_production_command(command: str) -> bool:
+    c = command.lower()
+    return any(word in c for word in _PROD_WORDS)
 
 
 def _risk_score(channel: str, command: str, environment: str, requested_by: str) -> dict:
@@ -42,14 +69,14 @@ def _risk_score(channel: str, command: str, environment: str, requested_by: str)
     score  = 20  # baseline
     flags  = []
 
-    if _BLOCKED_CMDS.search(command):
+    if _contains_blocked_pattern(command):
         return {"score": 100, "level": "critical", "flags": ["blocked_command_pattern"], "blocked": True}
 
-    if environment in ("prod", "production", "live", "prd") or _PROD_PATTERNS.search(command):
+    if environment in ("prod", "production", "live", "prd") or _is_production_command(command):
         score += 40
         flags.append("production_environment")
 
-    if _APPROVAL_CMDS.search(command):
+    if _contains_approval_pattern(command):
         score += 30
         flags.append("destructive_or_privileged_command")
 

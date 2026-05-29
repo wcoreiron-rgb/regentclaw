@@ -63,23 +63,17 @@ def _get_or_create_key() -> bytes:
         try:
             stored = _KEY_FILE.read_bytes().strip()
             Fernet(stored)             # validate — raises if corrupt/wrong format
-            logger.debug("Loaded encryption key from %s", _KEY_FILE)
             return stored              # pass as-is; Fernet decodes internally
-        except Exception as e:
-            logger.warning("Key file %s is invalid (%s) — regenerating", _KEY_FILE, e)
+        except Exception:
+            logger.warning("Stored encryption key is invalid — regenerating")
 
     # 3. Generate new key and persist so future restarts can decrypt existing creds
     key = Fernet.generate_key()        # returns base64url-encoded bytes already
     try:
         _SECRETS_DIR.mkdir(parents=True, exist_ok=True)
         _KEY_FILE.write_bytes(key)     # store encoded form exactly as Fernet gave it
-        logger.info(
-            "Generated new encryption key — persisted to %s. "
-            "Optionally add to backend/.env as SECRETS_ENCRYPTION_KEY for explicit control.",
-            _KEY_FILE,
-        )
-    except Exception as e:
-        logger.error("Could not persist encryption key to %s: %s", _KEY_FILE, e)
+    except Exception:
+        logger.error("Could not persist encryption key")
 
     return key                         # return encoded form; Fernet decodes internally
 

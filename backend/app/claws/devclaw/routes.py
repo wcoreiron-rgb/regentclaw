@@ -1,10 +1,13 @@
 """DevClaw — DevSecOps & CI/CD Security API Routes."""
+import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 
 router = APIRouter(prefix="/devclaw", tags=["DevClaw"])
+logger = logging.getLogger("devclaw")
 CLAW_NAME = "devclaw"
 
 PROVIDER_MAP = [
@@ -387,10 +390,11 @@ async def run_scan(db: AsyncSession = Depends(get_db)):
         from app.models.finding import Finding
         try:
             pipeline_findings = await fetch_github_findings(db)
-        except ValueError as e:
-            return {"status": "error", "message": str(e), "findings_created": 0, "findings_updated": 0, "critical": 0, "high": 0}
-        except Exception as e:
-            return {"status": "error", "message": f"GitHub scan failed: {e}", "findings_created": 0, "findings_updated": 0, "critical": 0, "high": 0}
+        except ValueError:
+            return {"status": "error", "message": "Invalid connector configuration", "findings_created": 0, "findings_updated": 0, "critical": 0, "high": 0}
+        except Exception:
+            logger.exception("GitHub scan failed")
+            return {"status": "error", "message": "GitHub scan failed", "findings_created": 0, "findings_updated": 0, "critical": 0, "high": 0}
 
         # Purge simulation findings (no external_id = ingested from _FINDINGS demo data)
         await db.execute(
@@ -422,5 +426,3 @@ async def run_scan(db: AsyncSession = Depends(get_db)):
         "critical": summary["critical"],
         "high": summary["high"],
     }
-
-
