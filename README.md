@@ -80,8 +80,10 @@ RegentClaw maintains an honest, evidence-backed self-assessment against the **OW
 
 | Document | Format |
 |---|---|
-| [OWASP Agentic Top 10 Evidence Matrix](https://wcoreiron-rgb.github.io/regentclaw/owasp-agentic.html) | Interactive HTML |
-| [docs/owasp-agentic-mapping.md](docs/owasp-agentic-mapping.md) | Markdown |
+| [OWASP Evidence Matrix (Interactive)](https://wcoreiron-rgb.github.io/regentclaw/owasp-agentic.html) | Interactive HTML |
+| [LLM Top 10 Mapping (Markdown)](docs/owasp-agentic-mapping.md) | Markdown |
+| [Agentic ASI Top 10 Mapping (Markdown)](docs/owasp-asi-mapping.md) | Markdown |
+| [Platform Maturity Matrix (Markdown)](docs/maturity-matrix.md) | Markdown |
 
 **Current posture (2026-05-29):**
 
