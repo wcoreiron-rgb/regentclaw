@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.fabric.providers.agt import get_agt_adapter
 from app.models.connector import Connector, ConnectorRisk, ConnectorStatus
@@ -18,6 +19,7 @@ from app.models.event import Event
 from app.models.identity import Identity, IdentityStatus, IdentityType
 from app.models.module import Module, ModuleStatus
 from app.models.policy import Policy, PolicyAction, PolicyScope
+from app.services.sre_policy import get_sre_engine
 from app.trust_fabric import ActionRequest, block_connector, enforce, isolate_module, suspend_identity
 from app.trust_fabric.agt_bridge import audit_prompt, scan_requirements
 
@@ -47,6 +49,10 @@ class MessageVerifyPayload(BaseModel):
     envelope: str = Field(..., min_length=8, max_length=200000)
     signature: str = Field(..., min_length=8, max_length=4096)
     key_id: str | None = Field(default=None, max_length=128)
+
+
+class SREResetPayload(BaseModel):
+    module: str | None = Field(default=None, max_length=64)
 
 
 def _requirements_path() -> str:
@@ -168,14 +174,40 @@ async def verify_multi_agent_message(payload: MessageVerifyPayload):
     )
 
 
+@router.get("/sre/status", summary="SRE policy status and error budget state")
+async def get_sre_status():
+    return get_sre_engine().get_overview()
+
+
+@router.post("/sre/reset", summary="Reset SRE policy state")
+async def reset_sre_state(payload: SREResetPayload):
+    return get_sre_engine().reset(module=payload.module)
+
+
 @router.post("/evaluate", summary="Evaluate an action through Trust Fabric")
 async def evaluate_trust_action(
     payload: TrustActionPayload,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    sre = get_sre_engine()
+    if settings.SRE_POLICY_ENABLED:
+        allowed, reason = sre.check_circuit(payload.module)
+        if not allowed:
+            return {
+                "allowed": False,
+                "outcome": "blocked",
+                "risk_score": 95.0,
+                "severity": "critical",
+                "policy_name": "sre_circuit_breaker",
+                "reason": reason,
+                "anomalies": ["sre_circuit_open"],
+            }
+
     action_request = ActionRequest(**payload.model_dump())
     decision = await enforce(db, action_request, ip_address=request.client.host if request.client else None)
+    if settings.SRE_POLICY_ENABLED:
+        sre.record_outcome(payload.module, success=decision.allowed)
     return _decision_payload(decision)
 
 

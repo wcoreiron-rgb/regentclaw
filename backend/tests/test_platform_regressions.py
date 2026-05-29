@@ -155,3 +155,167 @@ async def test_trust_fabric_multi_agent_verify_route(client):
     finally:
         settings.AGT_ENABLE_E2E_MESSAGING = False
         agt_adapter_module._adapter = None
+
+
+@pytest.mark.asyncio
+async def test_trust_fabric_sre_status_and_reset(client):
+    status = await client.get("/api/v1/trust-fabric/sre/status")
+    assert status.status_code == 200, status.text
+    body = status.json()
+    assert "enabled" in body
+    assert "modules" in body
+
+    reset = await client.post("/api/v1/trust-fabric/sre/reset", json={"module": None})
+    assert reset.status_code == 200, reset.text
+    assert reset.json()["reset"] is True
+
+
+@pytest.mark.asyncio
+async def test_trust_fabric_sre_circuit_breaker_blocks_evaluate(client):
+    from app.core.config import settings
+    from app.services.sre_policy import get_sre_engine
+
+    old_min = settings.SRE_MIN_SAMPLES
+    old_threshold = settings.SRE_CIRCUIT_BREAKER_THRESHOLD
+    old_open = settings.SRE_CIRCUIT_BREAKER_OPEN_SECONDS
+    old_enabled = settings.SRE_POLICY_ENABLED
+
+    settings.SRE_POLICY_ENABLED = True
+    settings.SRE_MIN_SAMPLES = 2
+    settings.SRE_CIRCUIT_BREAKER_THRESHOLD = 0.5
+    settings.SRE_CIRCUIT_BREAKER_OPEN_SECONDS = 60
+
+    engine = get_sre_engine()
+    engine.reset("sre_test_module")
+
+    # Prime two failures to open the circuit.
+    engine.record_outcome("sre_test_module", success=False)
+    engine.record_outcome("sre_test_module", success=False)
+
+    try:
+        resp = await client.post(
+            "/api/v1/trust-fabric/evaluate",
+            json={
+                "module": "sre_test_module",
+                "actor_id": "tester",
+                "actor_name": "Tester",
+                "actor_type": "human",
+                "action": "read_status",
+                "target": "trust-fabric",
+                "target_type": "module",
+                "context": {},
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["allowed"] is False
+        assert body["policy_name"] == "sre_circuit_breaker"
+    finally:
+        settings.SRE_MIN_SAMPLES = old_min
+        settings.SRE_CIRCUIT_BREAKER_THRESHOLD = old_threshold
+        settings.SRE_CIRCUIT_BREAKER_OPEN_SECONDS = old_open
+        settings.SRE_POLICY_ENABLED = old_enabled
+        engine.reset("sre_test_module")
+
+
+@pytest.mark.asyncio
+async def test_trust_fabric_ring_policy_blocks_ring0_action(client):
+    resp = await client.post(
+        "/api/v1/trust-fabric/evaluate",
+        json={
+            "module": "exec_channels",
+            "actor_id": "agent-1",
+            "actor_name": "Agent One",
+            "actor_type": "agent",
+            "action": "kernel_exec",
+            "target": "node-1",
+            "target_type": "host",
+            "context": {
+                "channel": "kernel",
+                "enforce_ring_policy": True,
+                "caller_role": "super_admin",
+                "trust_score": 99.0,
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["allowed"] is False
+    assert body["policy_name"] == "execution_ring_violation"
+
+
+@pytest.mark.asyncio
+async def test_trust_fabric_ring_policy_requires_approval(client):
+    resp = await client.post(
+        "/api/v1/trust-fabric/evaluate",
+        json={
+            "module": "remediation",
+            "actor_id": "analyst-1",
+            "actor_name": "Analyst One",
+            "actor_type": "human",
+            "action": "create_ticket",
+            "target": "finding-123",
+            "target_type": "finding",
+            "context": {
+                "enforce_ring_policy": True,
+                "caller_role": "analyst",
+                "trust_score": 20.0,
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["allowed"] is False
+    assert body["outcome"] == "requires_approval"
+    assert body["policy_name"] == "execution_ring_policy"
+
+
+@pytest.mark.asyncio
+async def test_exec_shell_request_uses_trust_fabric_ring_policy(client):
+    resp = await client.post(
+        "/api/v1/exec/shell",
+        json={
+            "command": "ls -la",
+            "requested_by": "tester",
+            "environment": "dev",
+            "agent_id": "agent-1",
+            "caller_role": "admin",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # shell channel is ring1 => requires approval from Trust Fabric ring policy.
+    assert body["status"] == "pending_approval"
+    assert body["requires_approval"] is True
+    assert any(str(flag).startswith("trust_fabric:") for flag in (body.get("policy_flags") or []))
+
+
+@pytest.mark.asyncio
+async def test_remediation_approve_blocked_by_ring0_trust_fabric(client):
+    # Create a manual remediation action with ring0 action_type.
+    trig = await client.post(
+        "/api/v1/remediation/trigger",
+        json={
+            "action_spec": {
+                "provider": "generic",
+                "action_type": "kernel_exec",
+                "target_id": "host-1",
+                "target_type": "host",
+                "target_label": "host-1",
+                "parameters": {},
+            },
+            "triggered_by": "manual",
+        },
+    )
+    assert trig.status_code == 200, trig.text
+    actions = trig.json().get("actions") or []
+    assert actions
+    action_id = actions[0]["id"]
+
+    approve = await client.post(
+        f"/api/v1/remediation/actions/{action_id}/approve",
+        json={"approved_by": "admin"},
+    )
+    assert approve.status_code == 403, approve.text
+    detail = approve.json().get("detail", {})
+    assert detail.get("policy_name") == "execution_ring_violation"

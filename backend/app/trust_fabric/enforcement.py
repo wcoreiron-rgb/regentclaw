@@ -11,7 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.policy_engine import evaluate_action, PolicyResult
 from app.services.risk_scoring import calculate_event_risk, severity_from_score
 from app.services.audit_service import log_action
+from app.services.ring_policy import (
+    ACTION_RING_MAP,
+    CHANNEL_RING_MAP,
+    classify_ring,
+    evaluate_ring,
+)
 from app.models.event import Event, EventOutcome, EventSeverity
+from app.models.policy import PolicyAction
 from app.trust_fabric.anomaly import detect_anomalies
 
 
@@ -89,10 +96,53 @@ async def enforce(
     # 1. Anomaly detection
     anomalies = await detect_anomalies(db, request)
 
-    # 2. Policy evaluation
-    policy_result: PolicyResult = await evaluate_action(db, eval_context, module=request.module)
+    # 2. Ring-policy evaluation (before standard policy engine)
+    # Apply only when action/channel are ring-classified or explicitly requested.
+    channel = str(request.context.get("channel", "") or "")
+    ring_enforce = bool(
+        request.context.get("enforce_ring_policy")
+        or request.action in ACTION_RING_MAP
+        or channel in CHANNEL_RING_MAP
+    )
+    ring_meta: dict[str, Any] | None = None
+    if ring_enforce:
+        ring = classify_ring(request.action, channel)
+        trust_score = float(request.context.get("trust_score", 50.0))
+        caller_role = str(request.context.get("caller_role", "viewer"))
+        ring_result = evaluate_ring(ring, trust_score=trust_score, caller_role=caller_role)
+        ring_meta = {
+            "enabled": True,
+            "ring": ring,
+            "trust_score": trust_score,
+            "caller_role": caller_role,
+            "allowed": ring_result["allowed"],
+            "requires_approval": ring_result["requires_approval"],
+            "approvals_required": ring_result["approvals_required"],
+            "policy_name": ring_result["policy_name"],
+        }
+        if not ring_result["allowed"] and not ring_result["requires_approval"]:
+            policy_result = PolicyResult(
+                action=PolicyAction.DENY,
+                policy_name=ring_result["policy_name"],
+                reason=ring_result["deny_reason"] or f"Denied by ring policy ({ring})",
+            )
+        elif ring_result["requires_approval"]:
+            policy_result = PolicyResult(
+                action=PolicyAction.REQUIRE_APPROVAL,
+                policy_name="execution_ring_policy",
+                reason=f"Ring policy requires approval ({ring}, approvals_required={ring_result['approvals_required']})",
+            )
+        else:
+            policy_result = PolicyResult(
+                action=PolicyAction.ALLOW,
+                policy_name="execution_ring_policy",
+                reason=f"Allowed by ring policy ({ring})",
+            )
+    else:
+        # 3. Standard policy evaluation
+        policy_result = await evaluate_action(db, eval_context, module=request.module)
 
-    # 3. Risk scoring
+    # 4. Risk scoring
     signals = list(anomalies)
     if not policy_result.allowed:
         signals.append("blocked_policy")
@@ -103,8 +153,7 @@ async def enforce(
     sev_str = severity_from_score(risk_score)
     severity = EventSeverity(sev_str)
 
-    # 4. Map outcome
-    from app.models.policy import PolicyAction
+    # 5. Map outcome
     outcome_map = {
         PolicyAction.ALLOW: EventOutcome.ALLOWED,
         PolicyAction.DENY: EventOutcome.BLOCKED,
@@ -114,7 +163,7 @@ async def enforce(
     }
     outcome = outcome_map.get(policy_result.action, EventOutcome.FLAGGED)
 
-    # 5. Persist event
+    # 6. Persist event
     event = Event(
         timestamp=request.timestamp,
         source_module=request.module,
@@ -130,13 +179,13 @@ async def enforce(
         policy_name=policy_result.policy_name,
         policy_reason=policy_result.reason,
         description=f"[{request.module}] {request.actor_name} → {request.action}",
-        metadata_json=json.dumps({"anomalies": anomalies, "context": request.context}),
+        metadata_json=json.dumps({"anomalies": anomalies, "context": request.context, "ring": ring_meta}),
         is_anomaly=bool(anomalies),
         requires_review=risk_score >= 50 or outcome == EventOutcome.REQUIRES_APPROVAL,
     )
     db.add(event)
 
-    # 6. Audit log
+    # 7. Audit log
     await log_action(
         db=db,
         actor=request.actor_name,
@@ -149,7 +198,7 @@ async def enforce(
         reason=policy_result.reason,
         module=request.module,
         ip_address=ip_address,
-        detail_json=json.dumps({"risk_score": risk_score, "anomalies": anomalies}),
+        detail_json=json.dumps({"risk_score": risk_score, "anomalies": anomalies, "ring": ring_meta}),
         compliance_relevant=risk_score >= 25,
     )
 
