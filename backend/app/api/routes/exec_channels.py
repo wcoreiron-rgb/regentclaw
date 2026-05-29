@@ -38,6 +38,7 @@ from app.database import get_db
 from app.models.exec_channels import ExecRequest, CredentialBrokerEntry, ProductionGate
 from app.services.exec_policy import evaluate_exec_request
 from app.services import secrets_manager
+from app.core.deps import get_current_user
 
 router = APIRouter(prefix="/exec", tags=["exec-channels"])
 
@@ -328,24 +329,50 @@ def get_request(req_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/requests/{req_id}/approve")
-def approve_request(req_id: str, body: dict, db: Session = Depends(get_db)):
+def approve_request(
+    req_id: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     r = db.query(ExecRequest).filter(ExecRequest.id == req_id).first()
     if not r:
         raise HTTPException(404, "Request not found")
     if r.status not in ("pending_approval",):
         raise HTTPException(400, f"Cannot approve request in status '{r.status}'")
 
-    approver = body.get("approved_by", "unknown")
-    if r.approval_count == 0:
+    # Approver identity always comes from the JWT — never trusted from the client body
+    approver = current_user.get("sub", "unknown")
+
+    # Prevent self-approval — the person who triggered cannot also approve
+    if approver == r.requested_by:
+        raise HTTPException(403, "Self-approval not permitted — a different user must approve")
+
+    # Prevent the same approver from approving twice
+    if approver in (r.approved_by_1, r.approved_by_2):
+        raise HTTPException(400, "You have already approved this request")
+
+    new_count = (r.approval_count or 0) + 1
+    if new_count == 1:
         r.approved_by_1 = approver
     else:
         r.approved_by_2 = approver
-    r.approval_count = (r.approval_count or 0) + 1
+
+    r.approval_count = new_count
     r.approval_note  = body.get("note", "")
     r.approved_at    = datetime.utcnow()
-    r.status         = "approved"
+
+    # Shell/browser channels require 2 approvals (matching PRODUCTION_APPROVALS_REQUIRED intent)
+    needs_two = r.channel in ("shell", "browser", "credential")
+    if needs_two and new_count < PRODUCTION_APPROVALS_REQUIRED:
+        status_msg = f"Approval {new_count}/{PRODUCTION_APPROVALS_REQUIRED} recorded — waiting for second approver"
+        # Stay in pending_approval until both sign off
+    else:
+        r.status   = "approved"
+        status_msg = f"Request fully approved ({new_count} approval(s))"
+
     db.commit()
-    return {"message": f"Request approved by {approver}", "status": r.status}
+    return {"message": status_msg, "status": r.status, "approval_count": r.approval_count}
 
 
 @router.post("/requests/{req_id}/reject")

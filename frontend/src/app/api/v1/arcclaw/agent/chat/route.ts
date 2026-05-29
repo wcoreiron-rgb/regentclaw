@@ -25,10 +25,17 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ detail: 'Invalid request body' }, { status: 400 });
   }
 
+  // Forward Authorization header so the backend JWT check passes in production
+  // (DEBUG=false). Without this the backend gets no Bearer token and returns 401.
+  const authHeader = request.headers.get('authorization') ?? '';
+
   try {
     const upstream = await fetch(url, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+      },
       body,
       // No AbortSignal — let it run until the LLM finishes
     });

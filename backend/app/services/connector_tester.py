@@ -10,13 +10,66 @@ Every test is read-only — no writes, no side effects.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlparse
 import httpx
 
 logger = logging.getLogger(__name__)
 TIMEOUT = 10.0
+
+
+# ── SSRF protection ────────────────────────────────────────────────────────────
+
+_SSRF_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),   # AWS/Azure/GCP metadata
+    ipaddress.ip_network("100.64.0.0/10"),    # Carrier-grade NAT
+    ipaddress.ip_network("::1/128"),           # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),          # IPv6 private
+]
+
+_SSRF_BLOCKED_HOSTS = frozenset({
+    "metadata.google.internal",
+    "metadata.azure.com",
+    "169.254.169.254",
+})
+
+
+def _validate_endpoint_url(url: str) -> str:
+    """
+    Validate a user-supplied URL against SSRF attack patterns.
+    Raises ValueError with a safe message if the URL is blocked.
+    Returns the URL if safe.
+    """
+    if not url or not url.startswith(("http://", "https://")):
+        raise ValueError("Endpoint must start with http:// or https://")
+
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+
+    if host.lower() in _SSRF_BLOCKED_HOSTS:
+        raise ValueError(f"Endpoint host '{host}' is not allowed")
+
+    # Resolve to IP and check against blocked networks
+    try:
+        addr = ipaddress.ip_address(host)
+        for net in _SSRF_BLOCKED_NETWORKS:
+            if addr in net:
+                raise ValueError(f"Endpoint resolves to a private/reserved address: {addr}")
+    except ValueError as exc:
+        # Re-raise our own ValueError; ip_address() raises ValueError for hostnames
+        if "private/reserved" in str(exc) or "not allowed" in str(exc):
+            raise
+        # hostname — do a basic check; full DNS resolution would need async
+        # Block known metadata hostnames explicitly (already done above)
+
+    return url
 
 
 @dataclass
@@ -84,6 +137,13 @@ async def _test_anthropic(creds: dict) -> TestResult:
 
 async def _test_ollama(creds: dict) -> TestResult:
     base_url = creds.get("base_url", "http://host.docker.internal:11434").rstrip("/")
+    # Allow the Docker-internal Ollama host (host.docker.internal) but block all other
+    # private/cloud-metadata addresses to prevent SSRF via custom base_url
+    if base_url not in ("http://host.docker.internal:11434", "http://localhost:11434"):
+        try:
+            _validate_endpoint_url(base_url)
+        except ValueError as exc:
+            return TestResult(False, f"Invalid Ollama URL: {exc}")
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
             resp = await client.get(f"{base_url}/api/tags")
@@ -171,18 +231,21 @@ async def _test_pagerduty(creds: dict) -> TestResult:
 
 
 async def _test_generic(creds: dict, endpoint: str) -> TestResult:
-    """Fallback: just check if the endpoint is reachable."""
-    if not endpoint or not endpoint.startswith("http"):
-        return TestResult(False, "No valid endpoint configured")
+    """Fallback: check if the endpoint is reachable. SSRF-protected."""
+    try:
+        safe_endpoint = _validate_endpoint_url(endpoint)
+    except ValueError as exc:
+        return TestResult(False, f"Endpoint blocked: {exc}")
+
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
-            resp = await client.get(endpoint)
+            resp = await client.get(safe_endpoint)
             return TestResult(
                 resp.status_code < 500,
                 f"Endpoint reachable — HTTP {resp.status_code}",
             )
         except httpx.ConnectError:
-            return TestResult(False, f"Cannot reach {endpoint}")
+            return TestResult(False, f"Cannot reach {safe_endpoint}")
         except Exception as e:
             return TestResult(False, str(e))
 

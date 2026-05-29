@@ -5,11 +5,18 @@ FastAPI Backend Entrypoint
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+
+# Global rate limiter instance — auth routes attach decorators to this
+limiter = Limiter(key_func=get_remote_address)
 from app.core.database import engine, Base, AsyncSessionLocal
 
 logger = logging.getLogger("regentclaw")
@@ -88,6 +95,9 @@ from app.core.swarm.routes import router as swarm_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validate security config — raises in production with insecure defaults
+    settings.validate_security()
+
     # Create all tables on startup (dev mode — use Alembic in production)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -125,6 +135,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Wire rate limiter (Finding 12)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Security response headers (Finding 13) ────────────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"]  = "nosniff"
+        response.headers["X-Frame-Options"]          = "DENY"
+        response.headers["Referrer-Policy"]          = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"]       = "geolocation=(), microphone=(), camera=()"
+        response.headers["X-XSS-Protection"]         = "1; mode=block"
+        # Only set HSTS when not in DEBUG (not served over HTTP in dev)
+        if not settings.DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Register all routers under /api/v1
 PREFIX = "/api/v1"

@@ -72,6 +72,9 @@ def _get_or_create_key() -> bytes:
     try:
         _SECRETS_DIR.mkdir(parents=True, exist_ok=True)
         _KEY_FILE.write_bytes(key)     # store encoded form exactly as Fernet gave it
+        # Restrict permissions — key must not be world-readable (Finding 11)
+        _KEY_FILE.chmod(0o600)
+        _SECRETS_DIR.chmod(0o700)
     except Exception:
         logger.error("Could not persist encryption key")
 
@@ -96,6 +99,9 @@ def _load_store() -> dict:
 def _save_store(store: dict):
     _SECRETS_DIR.mkdir(parents=True, exist_ok=True)
     _SECRETS_FILE.write_text(json.dumps(store, indent=2))
+    # Restrict permissions — credential store must not be world-readable (Finding 11)
+    _SECRETS_FILE.chmod(0o600)
+    _SECRETS_DIR.chmod(0o700)
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────

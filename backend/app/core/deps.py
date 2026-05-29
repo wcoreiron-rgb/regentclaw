@@ -15,7 +15,7 @@ Usage:
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
-from jose import JWTError
+from jwt.exceptions import InvalidTokenError as JWTError
 from starlette.requests import HTTPConnection
 
 from app.core.config import settings
@@ -30,20 +30,39 @@ _DEV_USER = {
 }
 
 
+# Paths that never require authentication.
+# Keep this list minimal — anything here is fully public.
+_PUBLIC_PATHS: frozenset[str] = frozenset({
+    "/api/v1/auth/token",
+    "/api/v1/auth/register",
+    "/health",
+    "/",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+})
+
+
 async def get_current_user(
     connection: HTTPConnection,
 ) -> dict:
     """
     Resolve the current user from a Bearer JWT.
 
-    In DEBUG mode (settings.DEBUG = True) this always returns a synthetic admin
+    Public paths (auth/token, health, docs) are exempted so the login
+    endpoint is never locked behind the token it issues — fixing the
+    production auth deadlock.
+
+    In DEBUG mode (settings.DEBUG = True) this returns a synthetic admin
     so that local development and all existing tests work without credentials.
 
     This dependency is installed globally on the FastAPI app, so it must support
-    both normal HTTP requests and WebSocket upgrades. FastAPI's HTTPBearer helper
-    only accepts Request objects, which breaks WebSocket routes during dependency
-    resolution.
+    both normal HTTP requests and WebSocket upgrades.
     """
+    # Always allow public endpoints — never require a token here
+    if connection.url.path in _PUBLIC_PATHS:
+        return {"sub": "anonymous", "role": "anonymous", "public": True}
+
     if settings.DEBUG:
         return _DEV_USER
 

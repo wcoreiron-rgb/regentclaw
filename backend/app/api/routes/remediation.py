@@ -16,6 +16,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.models.remediation import RemediationAction, RemediationStatus, RemediationPlaybook
 from app.services.remediation.engine import (
     approve_remediation,
@@ -153,10 +154,14 @@ async def approve_action(
     action_id: UUID,
     body: ApproveRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Approve a pending remediation action and execute it."""
+    """Approve a pending remediation action and execute it.
+    Approver identity is taken from the JWT — the body.approved_by field is ignored."""
+    # Always use the authenticated identity — never trust the client-supplied field
+    approver = current_user.get("sub", "unknown")
     try:
-        action = await approve_remediation(action_id, body.approved_by, db)
+        action = await approve_remediation(action_id, approver, db)
         return _action_to_dict(action)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -170,10 +175,13 @@ async def reject_action(
     action_id: UUID,
     body: RejectRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
     """Reject a pending remediation action."""
+    # Rejecter identity always from JWT
+    rejecter = current_user.get("sub", "unknown")
     try:
-        action = await reject_remediation(action_id, body.rejected_by, body.reason, db)
+        action = await reject_remediation(action_id, rejecter, body.reason, db)
         return _action_to_dict(action)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

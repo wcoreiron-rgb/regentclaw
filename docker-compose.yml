@@ -4,23 +4,31 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: regentclaw
-      POSTGRES_PASSWORD: regentclaw
-      POSTGRES_DB: regentclaw
+      POSTGRES_USER: ${POSTGRES_USER:-regentclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-regentclaw}
+      POSTGRES_DB: ${POSTGRES_DB:-regentclaw}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      # Bind to loopback only — DB must not be reachable from the network.
+      # Override with POSTGRES_PORT=5432 if you need host access during dev.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U regentclaw"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-regentclaw}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
+    # Redis auth password — set REDIS_PASSWORD in .env
+    command: >
+      sh -c "redis-server ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     ports:
-      - "6379:6379"
+      # Bind to loopback only.
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -32,13 +40,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      # Bind to loopback — access via Next.js proxy, not direct.
+      # The frontend container reaches backend via Docker DNS (http://backend:8000).
+      - "127.0.0.1:8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://regentclaw:regentclaw@db:5432/regentclaw
-      DATABASE_URL_SYNC: postgresql://regentclaw:regentclaw@db:5432/regentclaw
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: dev-secret-key-change-in-production
-      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-regentclaw}:${POSTGRES_PASSWORD:-regentclaw}@db:5432/${POSTGRES_DB:-regentclaw}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-regentclaw}:${POSTGRES_PASSWORD:-regentclaw}@db:5432/${POSTGRES_DB:-regentclaw}
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379/0
+      # REQUIRED: Set SECRET_KEY in .env — never use the default in production.
+      # Generate: python -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+      # DEBUG=true bypasses all JWT authentication — NEVER enable in production.
+      DEBUG: ${DEBUG:-false}
       AGT_ENABLE_MCP_GATEWAY: "true"
       ALLOWED_ORIGINS: '["http://localhost:3000","http://frontend:3000"]'
     volumes:

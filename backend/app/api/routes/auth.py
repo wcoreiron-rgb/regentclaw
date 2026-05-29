@@ -14,15 +14,20 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+# Rate limiter for the auth endpoint — brute-force protection (Finding 12)
+_limiter = Limiter(key_func=get_remote_address)
 
 
 # ── Configurable credentials ──────────────────────────────────────────────────
@@ -63,10 +68,11 @@ class UserResponse(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/token", response_model=TokenResponse)
-async def login(form: OAuth2PasswordRequestForm = Depends()):
+@_limiter.limit("10/minute")
+async def login(request: Request, form: OAuth2PasswordRequestForm = Depends()):
     """
     Exchange username + password for a Bearer JWT.
-
+    Rate limited to 10 attempts/minute per IP to prevent brute-force.
     Use with Authorization: Bearer <token> on protected endpoints.
     In DEBUG mode all endpoints bypass auth automatically.
     """
