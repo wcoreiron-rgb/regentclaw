@@ -107,6 +107,9 @@ async def test_swarm_task_secure_channel_enabled(client):
         sample_output = json.loads(tasks[0]["output_json"])
         assert sample_output["secure_channel"]["enabled"] is True
         assert sample_output["policy_decisions"][-1]["action"] == "E2E_MESSAGE"
+        assert sample_output["secure_channel"]["signature_algorithm"] == "ed25519"
+        assert sample_output["secure_channel"]["key_id"]
+        assert sample_output["secure_channel"]["signature"]
     finally:
         # Restore default toggle for test isolation across modules.
         settings.AGT_ENABLE_E2E_MESSAGING = False

@@ -105,6 +105,8 @@ async def test_trust_fabric_multi_agent_status(client):
     assert body["provider"] == "agt"
     assert "agent_mesh_enabled" in body
     assert "encrypted_messaging_enabled" in body
+    assert "cryptographic_identity_enabled" in body
+    assert "signature_algorithm" in body
     assert "compatibility_mode" in body
 
 
@@ -119,3 +121,37 @@ async def test_trust_fabric_mcp_scan_route(client):
     assert body["target_type"] == "skill"
     assert "mcp_gateway_enabled" in body
     assert "risk_score" in body
+
+
+@pytest.mark.asyncio
+async def test_trust_fabric_multi_agent_verify_route(client):
+    from app.core.config import settings
+    from app.fabric.providers.agt import adapter as agt_adapter_module
+    from app.fabric.providers.agt import get_agt_adapter
+
+    settings.AGT_ENABLE_E2E_MESSAGING = True
+    agt_adapter_module._adapter = None
+    try:
+        adapter = get_agt_adapter()
+        secure = adapter.send_secure_message(
+            sender="identityclaw",
+            recipient="swarm_judge",
+            message_type="TASK_RESULT",
+            payload={"task_id": "t-1", "risk_score": 55},
+        )
+
+        resp = await client.post(
+            "/api/v1/trust-fabric/multi-agent/verify",
+            json={
+                "envelope": secure["envelope"],
+                "signature": secure["signature"],
+                "key_id": secure["key_id"],
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["verified"] is True
+        assert body["algorithm"] == "ed25519"
+    finally:
+        settings.AGT_ENABLE_E2E_MESSAGING = False
+        agt_adapter_module._adapter = None

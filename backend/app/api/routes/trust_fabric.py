@@ -43,6 +43,11 @@ class MCPScanPayload(BaseModel):
     target_type: str = Field(default="skill", pattern="^(skill|mcp|connector)$")
     path: str = Field(..., min_length=1, max_length=1024)
 
+class MessageVerifyPayload(BaseModel):
+    envelope: str = Field(..., min_length=8, max_length=200000)
+    signature: str = Field(..., min_length=8, max_length=4096)
+    key_id: str | None = Field(default=None, max_length=128)
+
 
 def _requirements_path() -> str:
     """Find requirements.txt in local dev and container layouts."""
@@ -136,6 +141,9 @@ async def get_multi_agent_status():
         "enabled": bool(features["enable_agent_mesh"] or features["enable_e2e_messaging"]),
         "agent_mesh_enabled": features["enable_agent_mesh"],
         "encrypted_messaging_enabled": features["enable_e2e_messaging"],
+        "cryptographic_identity_enabled": bool(status.get("crypto_identity", {}).get("enabled")),
+        "signature_algorithm": status.get("crypto_identity", {}).get("algorithm"),
+        "key_id": status.get("crypto_identity", {}).get("key_id"),
         "compatibility_mode": features["version_mode"],
         "rollout_note": "Feature-flagged rollout via Regent Fabric adapter boundary.",
     }
@@ -148,6 +156,16 @@ async def scan_mcp_skill_path(payload: MCPScanPayload):
     result["target_type"] = payload.target_type
     result["mcp_gateway_enabled"] = adapter.flags.enable_mcp_gateway
     return result
+
+
+@router.post("/multi-agent/verify", summary="Verify signed inter-agent message envelope")
+async def verify_multi_agent_message(payload: MessageVerifyPayload):
+    adapter = get_agt_adapter()
+    return adapter.verify_secure_message(
+        envelope=payload.envelope,
+        signature=payload.signature,
+        key_id=payload.key_id,
+    )
 
 
 @router.post("/evaluate", summary="Evaluate an action through Trust Fabric")

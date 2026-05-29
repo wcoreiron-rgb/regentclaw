@@ -8,6 +8,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import secrets
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +23,7 @@ from app.trust_fabric.agt_bridge import (
     scan_requirements,
 )
 from app.fabric.providers.agt.version import AGTVersionInfo
+from app.fabric.security import get_agent_signer
 
 
 @dataclass(frozen=True)
@@ -44,12 +47,19 @@ class AGTAdapter:
         )
 
     def status(self) -> dict[str, Any]:
+        signer = get_agent_signer()
+        signer_status = signer.status()
         return {
             "provider": self.version.provider,
             "sdk_target": self.version.sdk_target,
             "agt_available": AGT_AVAILABLE,
             "features": asdict(self.flags),
             "bridge": agt_status(),
+            "crypto_identity": {
+                "enabled": signer_status.available,
+                "algorithm": signer_status.algorithm,
+                "key_id": signer_status.key_id,
+            },
         }
 
     def scan_backend_deps(self, requirements_path: str) -> dict[str, Any]:
@@ -100,18 +110,27 @@ class AGTAdapter:
                 "provider": "agt",
             }
 
+        signer = get_agent_signer()
+        metadata = {
+            "timestamp": int(time.time()),
+            "nonce": secrets.token_hex(12),
+            "message_id": secrets.token_hex(16),
+        }
+        message = {
+            "sender": sender,
+            "recipient": recipient,
+            "message_type": message_type,
+            "payload": payload,
+            "metadata": metadata,
+        }
         raw = json.dumps(
-            {
-                "sender": sender,
-                "recipient": recipient,
-                "message_type": message_type,
-                "payload": payload,
-            },
+            message,
             separators=(",", ":"),
             sort_keys=True,
         ).encode("utf-8")
         digest = hashlib.sha256(raw).hexdigest()
         envelope = base64.b64encode(raw).decode("ascii")
+        signature = signer.sign(raw)
 
         return {
             "enabled": True,
@@ -122,6 +141,24 @@ class AGTAdapter:
             "message_type": message_type,
             "envelope": envelope,
             "digest": digest,
+            "signature": signature,
+            "signature_algorithm": signer.algorithm,
+            "key_id": signer.key_id,
+            "metadata": metadata,
+        }
+
+    def verify_secure_message(self, envelope: str, signature: str, key_id: str | None = None) -> dict[str, Any]:
+        signer = get_agent_signer()
+        try:
+            raw = base64.b64decode(envelope.encode("ascii"))
+        except Exception:
+            return {"verified": False, "reason": "invalid_envelope_encoding"}
+
+        verified = signer.verify(raw, signature, key_id=key_id)
+        return {
+            "verified": verified,
+            "algorithm": signer.algorithm,
+            "key_id": signer.key_id,
         }
 
 
