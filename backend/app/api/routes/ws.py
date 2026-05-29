@@ -23,10 +23,9 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from jose import JWTError
 
 from app.core.config import settings
-from app.core.security import decode_access_token
+from app.core.security import JWTError, decode_access_token
 from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger("regentclaw.ws_route")
