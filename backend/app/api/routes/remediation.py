@@ -18,13 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.remediation import RemediationAction, RemediationStatus, RemediationPlaybook
-from app.services.ring_policy import classify_ring, evaluate_ring
 from app.services.remediation.engine import (
     approve_remediation,
     reject_remediation,
     rollback_remediation,
     execute_remediation,
 )
+from app.trust_fabric import ActionRequest, enforce
 
 router = APIRouter(prefix="/remediation", tags=["Remediation"])
 logger = logging.getLogger("remediation_routes")
@@ -162,17 +162,37 @@ async def approve_action(
     # Always use the authenticated identity — never trust the client-supplied field
     approver = current_user.get("sub", "unknown")
 
-    # Load action to check ring policy before approving
+    # Load action to check Trust Fabric ring-policy decision before approving
     pre_result = await db.execute(select(RemediationAction).where(RemediationAction.id == action_id))
     pre_action = pre_result.scalar_one_or_none()
     if pre_action is not None:
-        ring = classify_ring(pre_action.action_type or "", None)
-        ring_result = evaluate_ring(ring, 50.0, current_user.get("role", "viewer"))
-        if not ring_result["allowed"] and not ring_result["requires_approval"]:
+        tf_decision = await enforce(
+            db,
+            ActionRequest(
+                module="remediation",
+                actor_id=current_user.get("sub", "unknown"),
+                actor_name=current_user.get("sub", "unknown"),
+                actor_type="human",
+                action=pre_action.action_type or "remediation_action",
+                target=pre_action.target_id,
+                target_type=pre_action.target_type,
+                context={
+                    "channel": "remediation",
+                    "enforce_ring_policy": True,
+                    "caller_role": current_user.get("role", "viewer"),
+                    "trust_score": 50.0,
+                },
+            ),
+        )
+        if not tf_decision.allowed and tf_decision.outcome.value == "blocked":
             raise HTTPException(403, detail={
-                "policy_name": ring_result["policy_name"],
-                "deny_reason": ring_result["deny_reason"],
-                "ring": ring,
+                "policy_name": tf_decision.policy_name,
+                "deny_reason": tf_decision.reason,
+            })
+        if tf_decision.outcome.value == "requires_approval":
+            raise HTTPException(409, detail={
+                "policy_name": tf_decision.policy_name,
+                "deny_reason": tf_decision.reason,
             })
 
     try:

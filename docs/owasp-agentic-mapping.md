@@ -1,4 +1,4 @@
-# OWASP Top 10 for LLM/Agentic AI Applications — RegentClaw Evidence Matrix
+# OWASP Top 10 for LLM Applications (2025) — RegentClaw Evidence Matrix
 
 **Date:** 2026-05-29  
 **Version:** 1.0  
@@ -28,14 +28,14 @@
 
 | # | Category | Status | Test Coverage |
 |---|----------|--------|---------------|
-| LLM01 | Prompt Injection | **Shipped** | No automated test |
+| LLM01 | Prompt Injection | **Shipped** | `test_owasp_asi_evidence.py::test_asi01_prompt_injection_flagged_by_audit` (same prompt injection control as ASI-01) |
 | LLM02 | Insecure Output Handling | **Partially Shipped** | No automated test |
 | LLM03 | Training Data Poisoning | **N/A** | N/A |
 | LLM04 | Model Denial of Service | **In Progress** | No automated test |
 | LLM05 | Supply-Chain Vulnerabilities | **In Progress** | No automated test |
-| LLM06 | Sensitive Information Disclosure | **Shipped** | No automated test |
-| LLM07 | Insecure Plugin Design | **Partially Shipped** | `test_ring_policy.py` (ring enforcement) |
-| LLM08 | Excessive Agency | **Shipped** (strengthened) | `test_ring_policy.py` (ring enforcement) |
+| LLM06 | Sensitive Information Disclosure | **Shipped** | No automated test (see gap note below) |
+| LLM07 | Insecure Plugin Design | **Partially Shipped** | `test_ring_policy.py::test_ring0_always_blocked`, `test_owasp_asi_evidence.py::test_asi05_ring0_always_blocked_regardless_of_role_or_trust` |
+| LLM08 | Excessive Agency | **Shipped** (strengthened) | `test_ring_policy.py::test_ring1_requires_two_approvals`, `test_owasp_asi_evidence.py::test_asi09_self_approval_is_blocked` |
 | LLM09 | Overreliance | **Partially Shipped** | No automated test |
 | LLM10 | Model Theft | **N/A / Partial** | No automated test |
 
@@ -56,7 +56,9 @@
 - Events with injection findings are blocked or flagged before tool execution proceeds.
 - Results are written to the audit log with risk scores and vector detail.
 
-**Test Coverage:** No automated test for prompt injection paths. Manual testing via `POST /api/v1/arcclaw/events` with known injection payloads.
+**Test Coverage:**
+- `backend/tests/test_owasp_asi_evidence.py::test_asi01_prompt_injection_flagged_by_audit` — directly calls `audit_prompt()` with a "ignore previous instructions" payload and asserts `is_injection_risk=True`, `risk_score >= 20`, and at least one finding. This is the same control as ASI-01 in `docs/owasp-asi-mapping.md`.
+- `backend/tests/test_owasp_asi_evidence.py::test_asi01_benign_prompt_not_flagged` — verifies the control does not produce false positives for normal security operations queries.
 
 **Known Limitations:**
 - The AGT PromptDefenseEvaluator covers 12 vectors but may not catch all novel jailbreak techniques.
@@ -169,7 +171,9 @@
 - Audit log records actor, action, and outcome but redacts sensitive parameter values.
 - `backend/app/api/routes/connectors.py`: Credential hints are masked in responses (last 4 characters only).
 
-**Test Coverage:** No automated test for DLP paths. Scanner behavior is exercised via manual integration testing.
+**Test Coverage:** No automated test for the DLP output paths. `scan_text()` is exercised manually via `POST /api/v1/arcclaw/events` and the `arcclaw/chat` endpoint, but no isolated unit test covers the redaction pipeline.
+
+**Coverage Gap:** `test_platform_regressions.py` does not include credential/secret exposure tests. The scanner is confirmed to redact AWS keys, API tokens, credit card numbers, and SSNs in code review, but no automated assertion exists for this behavior. This is the primary LLM06 test gap.
 
 **Known Limitations:**
 - Output scanning (LLM responses) is not systematically applied — model completions are not re-scanned before storage (see LLM02).
@@ -192,7 +196,10 @@
 - Connector field validation (URL format, required fields) in connector creation routes.
 - `backend/app/claws/arcclaw/security_agent.py`: `TOOLS` list explicitly bounds what tools the security agent can invoke.
 
-**Test Coverage:** `backend/tests/test_ring_policy.py` — 32 tests covering ring classification, evaluation, role escalation blocking, and channel mapping.
+**Test Coverage:**
+- `backend/tests/test_ring_policy.py` — 32 tests covering ring classification, evaluation, role escalation blocking, and channel mapping.
+- `backend/tests/test_owasp_asi_evidence.py::test_asi05_ring0_always_blocked_regardless_of_role_or_trust` — exercises the same ring0 unconditional block that prevents arbitrary code execution via insecure plugins.
+- `backend/tests/test_owasp_asi_evidence.py::test_asi02_viewer_role_denied_ring1_action` — verifies low-privilege roles cannot invoke ring1 privileged plugin actions.
 
 **Known Limitations:**
 - Tool parameters passed to agents are not schema-validated against a strict allowlist — callers can supply arbitrary JSON.
@@ -218,7 +225,10 @@
 - Policy engine (`backend/app/services/policy_engine.py`): AGT/Swarm governance policies enforce swarm parallelism limits and approval gates on containment actions.
 - `backend/app/services/exec_policy.py`: `evaluate_exec_request()` blocks commands matching destructive/credential-access patterns.
 
-**Test Coverage:** `backend/tests/test_ring_policy.py` — 32 tests. No tests for the dual-approval or self-approval prevention paths.
+**Test Coverage:**
+- `backend/tests/test_ring_policy.py::test_ring1_requires_two_approvals` — verifies that ring1 (privileged) actions always require 2 approvals regardless of trust score.
+- `backend/tests/test_ring_policy.py::test_ring1_high_trust_still_requires_approval` — confirms trust score alone cannot bypass the dual-approval gate.
+- `backend/tests/test_owasp_asi_evidence.py::test_asi09_self_approval_is_blocked` — HTTP-level integration test asserting that the same identity cannot approve its own exec channel request (HTTP 403), closing the self-approval path for excessive agency via approval fraud.
 
 **Known Limitations:**
 - The ArcClaw security agent (`security_agent.py`) tool list is bounded but not dynamically validated against the ring policy at invocation time.

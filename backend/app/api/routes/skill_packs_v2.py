@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.fabric.providers.agt import get_agt_adapter
 from app.models.skill_pack import SkillPack
+from app.services.provenance import verify_package
 from app.trust_fabric import ActionRequest, enforce
 
 logger = logging.getLogger("regentclaw.skill_packs")
@@ -219,6 +220,23 @@ async def install_skill_pack(
         raise HTTPException(status_code=404, detail="Skill pack not found")
     if pack.is_installed:
         raise HTTPException(status_code=400, detail="Already installed")
+
+    # 0) Provenance check — verify manifest integrity before proceeding
+    result = verify_package(
+        manifest_json=pack.manifest_json,
+        expected_hash=pack.manifest_hash,
+        signature_b64=pack.manifest_signature,
+        public_key_pem=pack.publisher_key,
+    )
+    if not result.valid:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "manifest_integrity_failure",
+                "message": f"Skill pack manifest failed provenance check: {result.error}",
+                "hash": result.hash,
+            },
+        )
 
     # 1) Policy-govern the install action via Trust Fabric
     try:

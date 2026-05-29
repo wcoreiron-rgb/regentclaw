@@ -69,10 +69,13 @@ class SkillPack(Base):
     run_count:   Mapped[int] = mapped_column(Integer, default=0)
 
     # Provenance
-    signature:      Mapped[str | None] = mapped_column(String(128), nullable=True)  # SHA256 of manifest
-    source_url:     Mapped[str | None] = mapped_column(String(512), nullable=True)
-    license:        Mapped[str | None] = mapped_column(String(64), nullable=True)   # MIT | Apache-2.0 | …
-    changelog:      Mapped[str | None] = mapped_column(Text, nullable=True)
+    signature:          Mapped[str | None] = mapped_column(String(128), nullable=True)   # SHA256 of manifest (legacy short form)
+    manifest_hash:      Mapped[str | None] = mapped_column(String(64), nullable=True)    # SHA-256 hex (full 64 chars)
+    manifest_signature: Mapped[str | None] = mapped_column(String(512), nullable=True)   # Ed25519 base64
+    publisher_key:      Mapped[str | None] = mapped_column(Text, nullable=True)           # PEM public key
+    source_url:         Mapped[str | None] = mapped_column(String(512), nullable=True)
+    license:            Mapped[str | None] = mapped_column(String(64), nullable=True)    # MIT | Apache-2.0 | …
+    changelog:          Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)

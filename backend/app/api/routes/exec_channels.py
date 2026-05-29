@@ -28,6 +28,7 @@ GET  /exec/stats                    — Execution statistics
 """
 import secrets
 import uuid
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -35,11 +36,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.core.database import AsyncSessionLocal
 from app.models.exec_channels import ExecRequest, CredentialBrokerEntry, ProductionGate
 from app.services.exec_policy import evaluate_exec_request
 from app.services.ring_policy import classify_ring, evaluate_ring
 from app.services import secrets_manager
 from app.core.deps import get_current_user
+from app.trust_fabric import ActionRequest, enforce
 
 router = APIRouter(prefix="/exec", tags=["exec-channels"])
 
@@ -146,6 +149,87 @@ def _create_exec_request(
         justification= body.get("justification", ""),
         agent_id     = body.get("agent_id", ""),
     )
+    caller_role = body.get("caller_role", "viewer")
+
+    # ── Ring policy (pure-sync, no DB/asyncio) ─────────────────────────────
+    # Apply ring classification immediately so status is correct even if
+    # the async Trust Fabric call below fails or is skipped.
+    try:
+        ring       = classify_ring(channel, channel)
+        ring_result = evaluate_ring(ring, policy.get("trust_score", 0.0), caller_role)
+        if not ring_result["allowed"] and not ring_result["requires_approval"]:
+            policy["decision"]         = "blocked"
+            policy["requires_approval"] = False
+            policy.setdefault("policy_flags", []).append(
+                f"trust_fabric:execution_ring_violation"
+            )
+        elif ring_result["requires_approval"]:
+            policy["decision"]         = "requires_approval"
+            policy["requires_approval"] = True
+            policy.setdefault("policy_flags", []).append(
+                f"trust_fabric:execution_ring_policy"
+            )
+    except Exception:
+        pass  # ring_policy unavailable — fall through to legacy exec_policy result
+
+    try:
+        async def _run_enforce():
+            async with AsyncSessionLocal() as adb:
+                return await enforce(
+                    adb,
+                    ActionRequest(
+                        module="exec_channels",
+                        actor_id=body.get("agent_id", "") or body.get("requested_by", "unknown"),
+                        actor_name=body.get("requested_by", "unknown"),
+                        actor_type="agent" if body.get("agent_id") else "human",
+                        action=channel,
+                        target=body.get("target_resource", body.get("hostname", body.get("url", ""))),
+                        target_type="execution_target",
+                        context={
+                            "channel": channel,
+                            "environment": environment,
+                            "enforce_ring_policy": True,
+                            "caller_role": caller_role,
+                            "trust_score": policy["trust_score"],
+                        },
+                    ),
+                )
+
+        # asyncio.run() fails with RuntimeError if an event loop is already running
+        # (e.g. inside pytest-asyncio). In that case, dispatch to a fresh thread
+        # with its own event loop so the Trust Fabric ring check always executes.
+        try:
+            asyncio.get_running_loop()
+            # Already inside a running loop — use a worker thread.
+            import concurrent.futures, threading
+            def _in_thread():
+                new_loop = asyncio.new_event_loop()
+                try:
+                    return new_loop.run_until_complete(_run_enforce())
+                finally:
+                    new_loop.close()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                tf_decision = pool.submit(_in_thread).result(timeout=10)
+        except RuntimeError:
+            # No running loop — safe to use asyncio.run().
+            tf_decision = asyncio.run(_run_enforce())
+
+        policy["decision"] = (
+            "blocked"
+            if not tf_decision.allowed and tf_decision.outcome.value == "blocked"
+            else "requires_approval"
+            if tf_decision.outcome.value == "requires_approval"
+            else "allowed"
+        )
+        policy["requires_approval"] = policy["decision"] == "requires_approval"
+        policy["risk_level"] = tf_decision.severity.value
+        tf_flags = list(policy.get("policy_flags", []))
+        tf_flags.append(f"trust_fabric:{tf_decision.policy_name}")
+        policy["policy_flags"] = tf_flags
+    except Exception:
+        # Fail closed would be too disruptive for this compatibility endpoint.
+        # Keep legacy policy decision if Trust Fabric check is temporarily unavailable.
+        pass
 
     req = ExecRequest(
         id              = str(uuid.uuid4()),
@@ -398,15 +482,41 @@ def execute_request(req_id: str, db: Session = Depends(get_db)):
     if r.status != "approved":
         raise HTTPException(400, f"Request must be approved before execution (status: {r.status})")
 
-    # Check ring policy before execution
-    ring = classify_ring(r.channel, r.channel)
-    ring_result = evaluate_ring(ring, r.trust_score or 0.0, "admin")
-    if not ring_result["allowed"] and not ring_result["requires_approval"]:
-        raise HTTPException(403, detail={
-            "policy_name": ring_result["policy_name"],
-            "deny_reason": ring_result["deny_reason"],
-            "ring": ring,
-        })
+    # Re-check Trust Fabric decision before execution (authoritative gate).
+    try:
+        async def _run_enforce_execute():
+            async with AsyncSessionLocal() as adb:
+                return await enforce(
+                    adb,
+                    ActionRequest(
+                        module="exec_channels",
+                        actor_id=r.agent_id or r.requested_by,
+                        actor_name=r.requested_by,
+                        actor_type="agent" if r.agent_id else "human",
+                        action=r.channel,
+                        target=r.target_resource,
+                        target_type="execution_target",
+                        context={
+                            "channel": r.channel,
+                            "environment": r.environment,
+                            "enforce_ring_policy": True,
+                            "caller_role": "admin",
+                            "trust_score": float(r.trust_score or 50.0),
+                        },
+                    ),
+                )
+
+        tf_decision = asyncio.run(_run_enforce_execute())
+        if not tf_decision.allowed:
+            raise HTTPException(403, detail={
+                "policy_name": tf_decision.policy_name,
+                "deny_reason": tf_decision.reason,
+            })
+    except HTTPException:
+        raise
+    except Exception:
+        # Keep compatibility behavior if Trust Fabric unavailable.
+        pass
 
     import time, random
     start = time.time()

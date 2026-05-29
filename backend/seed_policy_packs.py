@@ -455,6 +455,115 @@ PACKS = [
         ],
     },
     {
+        "name": "Execution Ring Control",
+        "framework": "ring-policy",
+        "version": "1.0",
+        "description": (
+            "Ring-based execution isolation policies (ring0..ring3) for governed agent actions. "
+            "Enforces privilege tiers: ring0 blocked unconditionally, ring1 requires dual approval, "
+            "ring2 requires approval or high trust score, ring3 auto-allowed."
+        ),
+        "policies": [
+            {
+                "name": "RING0 — Block System/Kernel Execution",
+                "description": "EXEC RING | Unconditionally block all ring0 (system/kernel) actions for every agent and role — no exceptions",
+                "priority": 1,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "ring_level", "op": "eq", "value": "ring0"}),
+                "action": "deny",
+                "is_active": True,
+            },
+            {
+                "name": "RING1 — Require Dual Approval for Privileged Actions",
+                "description": "EXEC RING | Require 2 independent approvals for ring1 actions (quarantine_device, suspend_user, revoke_sessions, disable_iam_user, deactivate_access_key, attach_deny_policy, delete_secret, revoke_token)",
+                "priority": 2,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "ring_level", "op": "eq", "value": "ring1"}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "RING1 — Deny Viewer/Readonly Role Privileged Escalation",
+                "description": "EXEC RING | Block viewer, readonly, and guest roles from requesting any ring1 (privileged) actions",
+                "priority": 3,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "caller_role", "op": "in", "value": ["viewer", "readonly", "guest", "monitor"]}),
+                "action": "deny",
+                "is_active": True,
+            },
+            {
+                "name": "RING2 — Auto-Allow High-Trust Standard Actions",
+                "description": "EXEC RING | Auto-allow ring2 actions (create_ticket, send_alert, slack_message, webhook, kill_process) when trust_score >= 80",
+                "priority": 4,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "ring_level", "op": "eq", "value": "ring2"}),
+                "action": "conditional_allow",
+                "is_active": True,
+            },
+            {
+                "name": "RING2 — Require Approval for Low-Trust Standard Actions",
+                "description": "EXEC RING | Require 1 approval for ring2 actions when caller trust_score < 80",
+                "priority": 5,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "ring_level", "op": "eq", "value": "ring2", "trust_score": {"op": "lt", "value": 80}}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "RING3 — Auto-Allow Read-Only Actions",
+                "description": "EXEC RING | Auto-allow ring3 read-only actions (read_logs, get_findings, lookup_cve, list_resources, get_status) for all roles",
+                "priority": 6,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "ring_level", "op": "eq", "value": "ring3"}),
+                "action": "allow",
+                "is_active": True,
+            },
+            {
+                "name": "RING — Shell Channel Classified ring1",
+                "description": "EXEC RING | Any request via shell channel is automatically classified as ring1 (privileged) and requires dual approval",
+                "priority": 7,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "channel", "op": "eq", "value": "shell"}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+            {
+                "name": "RING — Credential Channel Classified ring1",
+                "description": "EXEC RING | Credential injection channel is automatically classified as ring1 (privileged) and requires dual approval",
+                "priority": 8,
+                "scope": "global",
+                "condition_json": json.dumps({"field": "channel", "op": "eq", "value": "credential"}),
+                "action": "require_approval",
+                "is_active": True,
+            },
+        ],
+    },
+    {
+        "name": "Provenance & Supply-Chain Controls",
+        "framework": "provenance",
+        "version": "1.0",
+        "description": (
+            "Supply-chain integrity policies that enforce content-hash and publisher-signature "
+            "verification for skill packs and connectors at install time."
+        ),
+        "policies": [
+            {
+                "name": "Block Unsigned Skill Pack Install",
+                "description": (
+                    "SKILLCLAW | Deny installation of skill packs without a verified "
+                    "content hash or publisher signature."
+                ),
+                "priority": 7,
+                "scope": "global",
+                "condition_json": json.dumps(
+                    {"type": "provenance_unverified", "scope": "skill_pack"}
+                ),
+                "action": "block",
+                "is_active": True,
+            },
+        ],
+    },
+    {
         "name": "PCI-DSS v4.0",
         "framework": "pci-dss",
         "version": "4.0",
