@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OWASP Agentic Top 10 — RegentClaw</title>
+  <meta name="description" content="RegentClaw evidence matrix for the OWASP Top 10 for LLM/Agentic AI Applications (2025). Honest self-assessment of what's shipped, in progress, and planned." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0a;
+      --surface:   #111111;
+      --surface2:  #1a1a1a;
+      --border:    #2a2a2a;
+      --blue:      #3b82f6;
+      --blue-dim:  #1d4ed8;
+      --purple:    #8b5cf6;
+      --green:     #22c55e;
+      --orange:    #f97316;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+      --text:      #f4f4f5;
+      --text2:     #a1a1aa;
+      --text3:     #71717a;
+      --radius:    8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+    .nav-logo .claw-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .nav-logo .claw-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .nav-links { list-style: none; display: flex; align-items: center; gap: 28px; }
+    .nav-links a { font-size: .9rem; color: var(--text2); transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .btn-nav {
+      background: var(--blue);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+    .nav-links .btn-nav:hover { background: var(--blue-dim); }
+    .nav-links .active-page { color: var(--text); font-weight: 600; }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    /* ── HEADER ── */
+    .page-header {
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+    }
+    .page-header .eyebrow {
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 10px;
+    }
+    .page-header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--text) 40%, var(--text2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+    .page-header p {
+      color: var(--text2);
+      font-size: 1rem;
+      max-width: 620px;
+      line-height: 1.7;
+    }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer {
+      background: rgba(249,115,22,.08);
+      border: 1px solid rgba(249,115,22,.25);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      color: var(--orange);
+      font-size: .88rem;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+    .disclaimer strong { color: #fbbf24; }
+
+    /* ── STATUS BADGES ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .badge-shipped   { background: rgba(34,197,94,.12);  color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+    .badge-partial   { background: rgba(245,158,11,.12); color: var(--amber);  border: 1px solid rgba(245,158,11,.3); }
+    .badge-progress  { background: rgba(59,130,246,.12); color: var(--blue);   border: 1px solid rgba(59,130,246,.3); }
+    .badge-planned   { background: rgba(113,113,122,.12); color: var(--text3); border: 1px solid rgba(113,113,122,.3); }
+    .badge-na        { background: rgba(139,92,246,.12); color: var(--purple); border: 1px solid rgba(139,92,246,.3); }
+
+    /* ── SUMMARY TABLE ── */
+    .summary-table-wrap {
+      overflow-x: auto;
+      margin-bottom: 56px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+    }
+    th {
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.025); }
+    td .cat-num { color: var(--text3); font-size: .82rem; }
+    td code {
+      font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+      font-size: .8rem;
+      background: var(--surface2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--text2);
+    }
+
+    /* ── CATEGORY CARDS ── */
+    .cat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+    .cat-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 28px 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cat-header:hover { background: rgba(255,255,255,.02); }
+    .cat-title-group {}
+    .cat-id {
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 4px;
+    }
+    .cat-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .cat-desc {
+      font-size: .88rem;
+      color: var(--text2);
+      line-height: 1.6;
+      max-width: 600px;
+    }
+    .cat-badge-wrap {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .expand-toggle {
+      font-size: .75rem;
+      color: var(--text3);
+      white-space: nowrap;
+    }
+
+    /* ── EVIDENCE SECTION ── */
+    .cat-evidence {
+      border-top: 1px solid var(--border);
+      padding: 24px 28px;
+      display: none;
+    }
+    .cat-evidence.open { display: block; }
+
+    .ev-section { margin-bottom: 20px; }
+    .ev-section:last-child { margin-bottom: 0; }
+    .ev-label {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .ev-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ev-list li {
+      font-size: .88rem;
+      color: var(--text2);
+      line-height: 1.6;
+      padding-left: 16px;
+      position: relative;
+    }
+    .ev-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--text3);
+      font-size: .78rem;
+    }
+    .ev-list li code {
+      font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+      font-size: .8rem;
+      background: var(--surface2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--blue);
+    }
+
+    .limitations-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .limitations-list li {
+      font-size: .88rem;
+      color: var(--text2);
+      line-height: 1.6;
+      padding-left: 16px;
+      position: relative;
+    }
+    .limitations-list li::before {
+      content: '!';
+      position: absolute;
+      left: 0;
+      color: var(--amber);
+      font-size: .78rem;
+      font-weight: 700;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      margin-top: 80px;
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text3);
+      font-size: .85rem;
+    }
+    footer a { color: var(--text2); }
+    footer a:hover { color: var(--text); }
+    footer .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .cat-header { flex-direction: column; }
+      .cat-badge-wrap { flex-direction: row; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="claw-icon"><img src="logo.png" alt="RegentClaw" /></div>
+      RegentClaw
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html#features">Features</a></li>
+      <li><a href="index.html#claws">Claws</a></li>
+      <li><a href="index.html#architecture">Architecture</a></li>
+      <li><a href="docs.html">Docs</a></li>
+      <li><a href="changelog.html">Changelog</a></li>
+      <li><a href="owasp-agentic.html" class="active-page">OWASP</a></li>
+      <li><a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener" class="btn-nav">GitHub →</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="container">
+
+  <div class="page-header">
+    <div class="eyebrow">Security Compliance</div>
+    <h1>OWASP Agentic Top 10 — Evidence Matrix</h1>
+    <p>An honest, evidence-backed mapping of RegentClaw against the
+       <strong>OWASP Top 10 for LLM/Agentic AI Applications (2025)</strong>.
+       Each entry shows what is actually shipped, what is in progress, and where gaps remain.</p>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Vendor Self-Assessment.</strong>
+    Claims in this document have been matched against source code in this repository but have not been
+    independently audited. An independent third-party security assessment is strongly recommended before
+    relying on this document for compliance or procurement purposes.
+    Last reviewed: <strong>2026-05-29</strong>.
+  </div>
+
+  <!-- ── SUMMARY TABLE ── -->
+  <div class="summary-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>Test Coverage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="cat-num">LLM01</span></td>
+          <td>Prompt Injection</td>
+          <td><span class="badge badge-shipped">Shipped</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM02</span></td>
+          <td>Insecure Output Handling</td>
+          <td><span class="badge badge-partial">Partially Shipped</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM03</span></td>
+          <td>Training Data Poisoning</td>
+          <td><span class="badge badge-na">N/A</span></td>
+          <td>N/A</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM04</span></td>
+          <td>Model Denial of Service</td>
+          <td><span class="badge badge-progress">In Progress</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM05</span></td>
+          <td>Supply-Chain Vulnerabilities</td>
+          <td><span class="badge badge-progress">In Progress</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM06</span></td>
+          <td>Sensitive Information Disclosure</td>
+          <td><span class="badge badge-shipped">Shipped</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM07</span></td>
+          <td>Insecure Plugin Design</td>
+          <td><span class="badge badge-partial">Partially Shipped</span></td>
+          <td><code>test_ring_policy.py</code></td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM08</span></td>
+          <td>Excessive Agency</td>
+          <td><span class="badge badge-shipped">Shipped</span></td>
+          <td><code>test_ring_policy.py</code></td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM09</span></td>
+          <td>Overreliance</td>
+          <td><span class="badge badge-partial">Partially Shipped</span></td>
+          <td>No automated test</td>
+        </tr>
+        <tr>
+          <td><span class="cat-num">LLM10</span></td>
+          <td>Model Theft</td>
+          <td><span class="badge badge-na">N/A / Partial</span></td>
+          <td>N/A</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── LLM01 ── -->
+  <div class="cat-card" id="llm01">
+    <div class="cat-header" onclick="toggleCard('llm01-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM01</div>
+        <div class="cat-name">Prompt Injection</div>
+        <div class="cat-desc">Manipulating LLM inputs to override instructions, exfiltrate data, or cause unintended behavior. Especially dangerous in agentic systems with tool access.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-shipped">Shipped</span>
+        <span class="expand-toggle" id="llm01-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm01-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/claws/arcclaw/routes.py</code> (lines 63–91): Every AI event runs a dual-layer inspection — AGT PromptDefenseEvaluator (12-vector injection audit) plus <code>scan_text()</code> pattern detection. Events flagged by either layer are blocked or tagged before any tool execution.</li>
+          <li><code>backend/app/trust_fabric/agt_bridge.py</code>: <code>audit_prompt()</code> called on every <code>POST /api/v1/arcclaw/events</code> and <code>POST /api/v1/arcclaw/chat</code>.</li>
+          <li>Audit log entries record the risk score, AGT vectors fired, and the outcome for every AI event — providing a forensic trail for injection attempts.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>The 12-vector audit may not catch all novel jailbreak techniques — coverage expands with AGT SDK updates.</li>
+          <li>Indirect injection (data poisoning via external sources read by an agent) relies on pattern matching only; semantic detection would require LLM-as-judge tooling.</li>
+          <li>No automated red-team test suite is included in the repository.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM02 ── -->
+  <div class="cat-card" id="llm02">
+    <div class="cat-header" onclick="toggleCard('llm02-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM02</div>
+        <div class="cat-name">Insecure Output Handling</div>
+        <div class="cat-desc">Failure to validate or sanitize LLM outputs before they are passed to downstream systems or rendered, leading to XSS, code execution, or SSRF.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-partial">Partially Shipped</span>
+        <span class="expand-toggle" id="llm02-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm02-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/claws/arcclaw/scanner.py</code>: <code>scan_text()</code> redacts secrets, API keys, and PII patterns. Applied to prompts entering the system.</li>
+          <li>API responses are serialized through Pydantic schemas — raw LLM output is not reflected directly to clients without structural validation.</li>
+          <li>DLP scanner in <code>backend/app/services/finding_pipeline.py</code> flags sensitive patterns in event payloads.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>LLM response bodies are stored and returned without a second-pass output scan — if a model returns malicious content, it is not re-inspected after generation.</li>
+          <li>No HTML sanitization layer exists for outputs rendered in the frontend dashboard.</li>
+          <li>Output scanning should be applied symmetrically to both prompts (input) and completions (output).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM03 ── -->
+  <div class="cat-card" id="llm03">
+    <div class="cat-header" onclick="toggleCard('llm03-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM03</div>
+        <div class="cat-name">Training Data Poisoning</div>
+        <div class="cat-desc">Manipulation of training data to introduce backdoors, biases, or vulnerabilities into model behavior.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-na">N/A</span>
+        <span class="expand-toggle" id="llm03-ev-toggle">Show details ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm03-ev">
+      <div class="ev-section">
+        <div class="ev-label">Rationale</div>
+        <ul class="ev-list">
+          <li>RegentClaw does not train, fine-tune, or host model weights. All LLM capability is consumed via provider APIs (Anthropic, OpenAI, Azure OpenAI, Ollama).</li>
+          <li><code>backend/app/claws/arcclaw/llm_proxy.py</code>: <code>call_llm()</code> delegates to configured providers via API calls. No training pipeline, dataset, or weight files exist in this repository.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>Supply-chain risk from model providers remains — if a hosted model is poisoned by a provider, RegentClaw has no detection mechanism. Covered partially under LLM05.</li>
+          <li>No model output consistency checks or behavior baseline comparisons are implemented.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM04 ── -->
+  <div class="cat-card" id="llm04">
+    <div class="cat-header" onclick="toggleCard('llm04-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM04</div>
+        <div class="cat-name">Model Denial of Service</div>
+        <div class="cat-desc">Attacks that consume excessive compute, memory, or API quota via crafted inputs — very long prompts, recursive queries, or resource-intensive completions.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-progress">In Progress</span>
+        <span class="expand-toggle" id="llm04-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm04-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/main.py</code>: <code>slowapi</code> rate limiter applied to authentication endpoints — provides baseline request throttling.</li>
+          <li>The platform tracks per-request risk scores which could be used to gate expensive operations in future.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>No per-user rate limiting on AI endpoints (<code>/arcclaw/events</code>, <code>/arcclaw/chat</code>). Only auth routes are rate-limited currently.</li>
+          <li>Prompt length is not capped before being forwarded to the model provider.</li>
+          <li>No token budget or cost-cap enforcement at the API layer.</li>
+          <li>No circuit-breaker or backpressure when a provider returns 429 or 503.</li>
+          <li>Planned: per-endpoint rate limiting via slowapi on ArcClaw routes.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM05 ── -->
+  <div class="cat-card" id="llm05">
+    <div class="cat-header" onclick="toggleCard('llm05-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM05</div>
+        <div class="cat-name">Supply-Chain Vulnerabilities</div>
+        <div class="cat-desc">Vulnerabilities introduced via third-party model providers, plugins, datasets, fine-tuning services, or compromised Python packages.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-progress">In Progress</span>
+        <span class="expand-toggle" id="llm05-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm05-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/services/secrets_manager.py</code>: Connector credentials Fernet-encrypted at rest. Keys auto-generated per deployment, gitignored.</li>
+          <li><code>backend/requirements.txt</code>: PyJWT pinned to 2.9.0 (patched). <code>python-multipart</code> pinned to 0.0.12 (patched for CVE-2024-53498).</li>
+          <li><code>backend/app/services/connector_tester.py</code>: SSRF protection — URLs validated against private IP blocklist before connector test requests.</li>
+          <li>Connector installs require administrator approval via the Zero Trust Baseline policy pack ("ZT — Block Connector Install Without Approval").</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>No automated supply-chain scanning (Trivy, Snyk, pip-audit) integrated into CI — transitive dependency vulnerabilities would not be caught automatically.</li>
+          <li>No SBOM (Software Bill of Materials) generated in the build pipeline.</li>
+          <li>Connector code is not sandboxed at the OS level — a malicious connector could access process memory or make unexpected system calls.</li>
+          <li>Provider API keys are encrypted at rest but transmitted to third-party endpoints — provider compromise is out of RegentClaw's direct threat model.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM06 ── -->
+  <div class="cat-card" id="llm06">
+    <div class="cat-header" onclick="toggleCard('llm06-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM06</div>
+        <div class="cat-name">Sensitive Information Disclosure</div>
+        <div class="cat-desc">LLMs inadvertently revealing PII, credentials, financial data, or system internals through memorization, prompt echoing, or insufficient output filtering.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-shipped">Shipped</span>
+        <span class="expand-toggle" id="llm06-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm06-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/services/secrets_manager.py</code>: All connector credentials stored Fernet-encrypted at rest. Encryption key auto-generated per deployment in <code>backend/.secrets/</code> (gitignored). Never stored in plaintext.</li>
+          <li><code>backend/app/claws/arcclaw/scanner.py</code>: <code>scan_text()</code> pattern-matches API keys, tokens, AWS credentials, credit card numbers, SSNs, and email addresses on every submitted prompt.</li>
+          <li><code>backend/app/api/routes/exec_channels.py</code>: Credential injection endpoint never returns secret values — secrets are injected into agent runtime only. Response explicitly notes: "Secret value is never returned via API."</li>
+          <li><code>backend/app/api/routes/connectors.py</code>: Credential hints are masked in responses (partial masking, last characters only).</li>
+          <li>Audit log records actor, action, and outcome but parameters are structured — sensitive values are not interpolated into log strings.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>Output scanning is not applied to LLM response text before storage — model completions are not re-scanned after generation (see LLM02).</li>
+          <li>No data classification framework (PII/PHI/PCI field tagging) is integrated into the data model.</li>
+          <li><code>detail_json</code> in audit log could contain sensitive context if callers are not careful.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM07 ── -->
+  <div class="cat-card" id="llm07">
+    <div class="cat-header" onclick="toggleCard('llm07-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM07</div>
+        <div class="cat-name">Insecure Plugin Design</div>
+        <div class="cat-desc">Plugin/tool interfaces that are overly permissive, lack input validation, allow SSRF, or permit privilege escalation through tool parameters.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-partial">Partially Shipped</span>
+        <span class="expand-toggle" id="llm07-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm07-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/services/ring_policy.py</code>: Ring-based execution isolation classifies every <code>action_type</code> and exec channel into ring0..ring3, enforcing privilege tiers. ring0 is unconditionally blocked for all agents and roles.</li>
+          <li><code>backend/app/api/routes/exec_channels.py</code>: Ring policy check applied before executing approved requests. Hard-blocked (ring0) and role-escalation (viewer → ring1) requests refused with HTTP 403.</li>
+          <li><code>backend/app/services/connector_tester.py</code>: SSRF protection — connector test URLs validated against private/reserved IP blocklist before requests.</li>
+          <li>Connector field validation (URL format, required fields) enforced in connector creation routes.</li>
+          <li><code>backend/app/claws/arcclaw/security_agent.py</code>: <code>TOOLS</code> list explicitly bounds which tools the security agent can invoke.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Test Coverage</div>
+        <ul class="ev-list">
+          <li><code>backend/tests/test_ring_policy.py</code> — 32 tests covering ring classification, enforcement, role escalation blocking, and channel mapping.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>Tool parameters passed to agents are not schema-validated against a strict allowlist — callers can supply arbitrary JSON within the <code>parameters</code> field.</li>
+          <li>No OS-level sandbox (seccomp, container isolation) prevents plugins from making unexpected system calls.</li>
+          <li>Plugin authentication is via the platform JWT — there is no per-plugin scoped token or capability token.</li>
+          <li>The ring policy covers exec channels and remediation approvals but not all tool invocation paths in the ArcClaw security agent.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM08 ── -->
+  <div class="cat-card" id="llm08">
+    <div class="cat-header" onclick="toggleCard('llm08-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM08</div>
+        <div class="cat-name">Excessive Agency</div>
+        <div class="cat-desc">LLM agents given more capabilities or permissions than needed — leading to unauthorized actions, data destruction, or unintended side effects.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-shipped">Shipped</span>
+        <span class="expand-toggle" id="llm08-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm08-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/services/ring_policy.py</code>: Four-ring privilege isolation. Every action maps to ring0 (blocked) → ring1 (2 approvals) → ring2 (1 approval or trust ≥ 80) → ring3 (auto-allowed). No agent can skip rings.</li>
+          <li><code>backend/app/api/routes/exec_channels.py</code> <code>execute_request</code>: Ring policy evaluated before execution. Violations return HTTP 403 with <code>policy_name</code> and <code>deny_reason</code>.</li>
+          <li><code>backend/app/api/routes/remediation.py</code> <code>approve_action</code>: Ring policy check before calling <code>approve_remediation</code>. Blocks role-escalation by low-privilege callers.</li>
+          <li><code>backend/app/api/routes/exec_channels.py</code> <code>approve_request</code>: Self-approval blocked (<code>approver == r.requested_by</code> → HTTP 403). Dual approvals required for shell/browser/credential channels.</li>
+          <li><code>backend/app/models/exec_channels.py</code>: <code>ProductionGate</code> model enforces dual approval for all production changes — tracked in database with approver identities.</li>
+          <li><code>backend/app/services/exec_policy.py</code>: <code>evaluate_exec_request()</code> blocks commands matching destructive or credential-access patterns before any approval is requested.</li>
+          <li>AGT/Swarm governance policy pack enforces swarm parallelism limits and requires explicit human approval for containment actions (isolate, block, suspend).</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Test Coverage</div>
+        <ul class="ev-list">
+          <li><code>backend/tests/test_ring_policy.py</code> — 32 tests. Covers ring classification, auto-allow/deny logic, approval gate counts, role escalation blocking, and channel mapping.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>The ArcClaw security agent tool list is bounded but not dynamically cross-checked against the ring policy at each tool invocation.</li>
+          <li>Workflow runner can chain multiple actions — inter-step privilege accumulation is not yet tracked across a session.</li>
+          <li>No per-session capability token — an agent that gains approval for one action could theoretically reference that context for adjacent actions in the same session.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM09 ── -->
+  <div class="cat-card" id="llm09">
+    <div class="cat-header" onclick="toggleCard('llm09-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM09</div>
+        <div class="cat-name">Overreliance</div>
+        <div class="cat-desc">Users or automated systems trusting LLM outputs without verification — leading to incorrect decisions, missed alerts, or automated actions based on hallucinated information.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-partial">Partially Shipped</span>
+        <span class="expand-toggle" id="llm09-ev-toggle">Show evidence ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm09-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li><code>backend/app/claws/arcclaw/routes.py</code>: Every AI event stored with a <code>risk_score</code> and <code>outcome</code> computed by the AGT audit and scanner. Users can review scores in the dashboard before acting.</li>
+          <li>AI events are not auto-executed — they surface as findings requiring human review or policy-matched response with approval.</li>
+          <li>Remediation playbooks have <code>requires_approval</code> flag — high-risk playbooks require human sign-off before execution.</li>
+          <li>Findings include <code>severity</code> and <code>confidence</code> fields to help operators contextualize AI-generated detections.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>Risk scores are displayed but no mechanism prevents operators from always approving high-risk AI recommendations without actual review.</li>
+          <li>No counter-factual explanation or uncertainty quantification is presented alongside AI findings.</li>
+          <li>No "dismissed by user" audit trail — when an operator ignores an AI-generated alert, this is not logged.</li>
+          <li>No calibration data or false-positive rate reporting is implemented to help operators judge AI reliability over time.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LLM10 ── -->
+  <div class="cat-card" id="llm10">
+    <div class="cat-header" onclick="toggleCard('llm10-ev')">
+      <div class="cat-title-group">
+        <div class="cat-id">LLM10</div>
+        <div class="cat-name">Model Theft</div>
+        <div class="cat-desc">Extracting model weights, system prompts, or training data through API abuse, timing attacks, or adversarial probing.</div>
+      </div>
+      <div class="cat-badge-wrap">
+        <span class="badge badge-na">N/A / Partial</span>
+        <span class="expand-toggle" id="llm10-ev-toggle">Show details ↓</span>
+      </div>
+    </div>
+    <div class="cat-evidence" id="llm10-ev">
+      <div class="ev-section">
+        <div class="ev-label">Evidence</div>
+        <ul class="ev-list">
+          <li>RegentClaw does not host model weights — inference is via provider APIs. Theft of model weights from the RegentClaw platform is not applicable.</li>
+          <li><code>backend/app/services/secrets_manager.py</code>: Provider API keys encrypted at rest with Fernet. Keys are never logged or returned via API response.</li>
+          <li>AuditLog entries record API key usage events without embedding the key value.</li>
+        </ul>
+      </div>
+      <div class="ev-section">
+        <div class="ev-label">Known Limitations</div>
+        <ul class="limitations-list">
+          <li>System prompts used by ArcClaw's security agent (<code>backend/app/claws/arcclaw/security_agent.py</code>) are stored in source code — if source is leaked, prompt IP is exposed.</li>
+          <li>No mechanism to detect adversarial probing attempts (repeated queries designed to reconstruct the system prompt).</li>
+          <li>Provider-side model theft is entirely dependent on the provider's own security posture.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-links">
+    <a href="docs.html">Docs</a>
+    <a href="changelog.html">Changelog</a>
+    <a href="owasp-agentic-mapping.md">Markdown version</a>
+    <a href="https://github.com/wcoreiron-rgb/regentclaw" target="_blank" rel="noopener">GitHub</a>
+  </div>
+  <p>RegentClaw — Zero Trust Security Ecosystem &nbsp;·&nbsp; OWASP Agentic Top 10 Self-Assessment &nbsp;·&nbsp; 2026-05-29</p>
+</footer>
+
+<script>
+  function toggleCard(id) {
+    const ev = document.getElementById(id);
+    const toggle = document.getElementById(id + '-toggle');
+    if (!ev) return;
+    const isOpen = ev.classList.contains('open');
+    ev.classList.toggle('open', !isOpen);
+    if (toggle) toggle.textContent = isOpen ? 'Show evidence ↓' : 'Hide evidence ↑';
+  }
+</script>
+
+</body>
+</html>

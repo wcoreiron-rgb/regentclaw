@@ -157,3 +157,16 @@ def evaluate_exec_request(
             "Allowed"
         ),
     }
+
+
+# ─── Ring policy integration ──────────────────────────────────────────────────
+
+from app.services.ring_policy import classify_ring, evaluate_ring  # noqa: E402
+
+
+def apply_ring_policy(action_type: str, channel: str, trust_score: float, caller_role: str) -> dict:
+    """Classify action into ring and evaluate enforcement. Returns ring policy result."""
+    ring = classify_ring(action_type, channel)
+    result = evaluate_ring(ring, trust_score, caller_role)
+    result["ring"] = ring
+    return result

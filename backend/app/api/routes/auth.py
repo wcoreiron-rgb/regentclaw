@@ -12,13 +12,14 @@ In production also set SECRET_KEY and DEBUG=false.
 """
 from __future__ import annotations
 
+import threading
+import time
+from collections import defaultdict
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
@@ -26,8 +27,30 @@ from app.core.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# Rate limiter for the auth endpoint — brute-force protection (Finding 12)
-_limiter = Limiter(key_func=get_remote_address)
+# ── In-process rate limiter for /auth/token (Finding 12) ─────────────────────
+# Uses a sliding-window counter keyed by client IP.
+# For multi-replica deployments, replace with Redis-backed slowapi.
+_RATE_WINDOW   = 60    # seconds
+_RATE_MAX      = 10    # attempts per window per IP
+_rate_store: dict[str, list[float]] = defaultdict(list)
+_rate_lock  = threading.Lock()
+
+
+def _auth_rate_limit(request: Request) -> None:
+    """Dependency: raises 429 if the caller IP exceeds 10 login attempts / minute."""
+    ip  = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    cutoff = now - _RATE_WINDOW
+    with _rate_lock:
+        window = [t for t in _rate_store[ip] if t > cutoff]
+        if len(window) >= _RATE_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many login attempts — please wait 60 seconds before retrying.",
+                headers={"Retry-After": "60"},
+            )
+        window.append(now)
+        _rate_store[ip] = window
 
 
 # ── Configurable credentials ──────────────────────────────────────────────────
@@ -68,11 +91,14 @@ class UserResponse(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/token", response_model=TokenResponse)
-@_limiter.limit("10/minute")
-async def login(request: Request, form: OAuth2PasswordRequestForm = Depends()):
+async def login(
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    _rl: None = Depends(_auth_rate_limit),
+):
     """
     Exchange username + password for a Bearer JWT.
-    Rate limited to 10 attempts/minute per IP to prevent brute-force.
+    Rate limited to 10 attempts/minute per IP (Finding 12).
     Use with Authorization: Bearer <token> on protected endpoints.
     In DEBUG mode all endpoints bypass auth automatically.
     """

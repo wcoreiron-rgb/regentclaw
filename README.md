@@ -74,6 +74,32 @@ RegentClaw/
 ├── docker-compose.yml Full local stack
 ```
 
+## Security Compliance
+
+RegentClaw maintains an honest, evidence-backed self-assessment against the **OWASP Top 10 for LLM/Agentic AI Applications (2025)**.
+
+| Document | Format |
+|---|---|
+| [OWASP Agentic Top 10 Evidence Matrix](https://wcoreiron-rgb.github.io/regentclaw/owasp-agentic.html) | Interactive HTML |
+| [docs/owasp-agentic-mapping.md](docs/owasp-agentic-mapping.md) | Markdown |
+
+**Current posture (2026-05-29):**
+
+| Category | Status |
+|---|---|
+| LLM01 Prompt Injection | Shipped — 12-vector AGT audit on every AI event |
+| LLM02 Insecure Output Handling | Partially Shipped — input scanning only; output re-scan not yet applied |
+| LLM03 Training Data Poisoning | N/A — uses provider APIs, no training pipeline |
+| LLM04 Model Denial of Service | In Progress — auth rate limiting exists; AI endpoint limits planned |
+| LLM05 Supply-Chain Vulnerabilities | In Progress — encrypted credentials, pinned deps; no SBOM yet |
+| LLM06 Sensitive Information Disclosure | Shipped — Fernet encryption, DLP scanner, masked credential hints |
+| LLM07 Insecure Plugin Design | Partially Shipped — ring policy + SSRF protection shipped; OS sandbox not yet |
+| LLM08 Excessive Agency | Shipped — 4-ring privilege isolation, dual-approval gates, self-approval blocked |
+| LLM09 Overreliance | Partially Shipped — risk scores visible; no override audit trail yet |
+| LLM10 Model Theft | N/A — no hosted weights; API keys encrypted at rest |
+
+> This is a vendor self-assessment. Independent audit recommended before compliance reliance.
+
 ## Quick Start
 
 ### Prerequisites

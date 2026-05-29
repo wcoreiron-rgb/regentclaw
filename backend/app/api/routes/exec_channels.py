@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.exec_channels import ExecRequest, CredentialBrokerEntry, ProductionGate
 from app.services.exec_policy import evaluate_exec_request
+from app.services.ring_policy import classify_ring, evaluate_ring
 from app.services import secrets_manager
 from app.core.deps import get_current_user
 
@@ -396,6 +397,16 @@ def execute_request(req_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "Request not found")
     if r.status != "approved":
         raise HTTPException(400, f"Request must be approved before execution (status: {r.status})")
+
+    # Check ring policy before execution
+    ring = classify_ring(r.channel, r.channel)
+    ring_result = evaluate_ring(ring, r.trust_score or 0.0, "admin")
+    if not ring_result["allowed"] and not ring_result["requires_approval"]:
+        raise HTTPException(403, detail={
+            "policy_name": ring_result["policy_name"],
+            "deny_reason": ring_result["deny_reason"],
+            "ring": ring,
+        })
 
     import time, random
     start = time.time()

@@ -7,6 +7,8 @@ SECRET_KEY) when deploying to staging/production.
 """
 from __future__ import annotations
 
+import hashlib
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -16,17 +18,27 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__truncate_error=True)
+# passlib 1.7.4 is not compatible with bcrypt 4.x (__about__ removed).
+# We stay on bcrypt 3.2.2 but work around the 72-char truncation limit by
+# pre-hashing passwords with SHA-256 → base64 before passing to bcrypt.
+# This guarantees any-length passwords are unique inputs to bcrypt.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _prehash(plain: str) -> str:
+    """SHA-256 + base64 prehash so bcrypt never silently truncates at 72 bytes."""
+    digest = hashlib.sha256(plain.encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("ascii")
 
 
 # ── Password helpers ──────────────────────────────────────────────────────────
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return pwd_context.hash(_prehash(plain))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(_prehash(plain), hashed)
 
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────

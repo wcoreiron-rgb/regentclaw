@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.remediation import RemediationAction, RemediationStatus, RemediationPlaybook
+from app.services.ring_policy import classify_ring, evaluate_ring
 from app.services.remediation.engine import (
     approve_remediation,
     reject_remediation,
@@ -160,6 +161,20 @@ async def approve_action(
     Approver identity is taken from the JWT — the body.approved_by field is ignored."""
     # Always use the authenticated identity — never trust the client-supplied field
     approver = current_user.get("sub", "unknown")
+
+    # Load action to check ring policy before approving
+    pre_result = await db.execute(select(RemediationAction).where(RemediationAction.id == action_id))
+    pre_action = pre_result.scalar_one_or_none()
+    if pre_action is not None:
+        ring = classify_ring(pre_action.action_type or "", None)
+        ring_result = evaluate_ring(ring, 50.0, current_user.get("role", "viewer"))
+        if not ring_result["allowed"] and not ring_result["requires_approval"]:
+            raise HTTPException(403, detail={
+                "policy_name": ring_result["policy_name"],
+                "deny_reason": ring_result["deny_reason"],
+                "ring": ring,
+            })
+
     try:
         action = await approve_remediation(action_id, approver, db)
         return _action_to_dict(action)
