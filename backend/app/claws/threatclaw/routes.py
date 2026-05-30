@@ -1,6 +1,8 @@
 """ThreatClaw — Threat Detection & IOC Correlation API Routes."""
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, Field
+from datetime import datetime
 
 from app.core.database import get_db
 
@@ -12,6 +14,15 @@ PROVIDER_MAP = [
     {"provider": "crowdstrike",        "label": "CrowdStrike Falcon X",      "connector_type": "crowdstrike"},
     {"provider": "recorded_future",    "label": "Recorded Future",           "connector_type": "recorded_future"},
 ]
+
+
+class ThreatTaskRequest(BaseModel):
+    swarm_job_id: str | None = None
+    task_type: str = "investigate_threat_activity"
+    input: dict = Field(default_factory=dict)
+    classification: str = "internal"
+    model_profile: str | None = None
+    allowed_actions: list[str] = Field(default_factory=lambda: ["read", "analyze", "recommend"])
 
 _FINDINGS = [
     {
@@ -344,4 +355,38 @@ async def run_scan(db: AsyncSession = Depends(get_db)):
         "findings_updated": summary["updated"],
         "critical": summary["critical"],
         "high": summary["high"],
+    }
+
+
+@router.post("/task", summary="Execute focused ThreatClaw swarm task")
+async def run_task(payload: ThreatTaskRequest, db: AsyncSession = Depends(get_db)):
+    started = datetime.utcnow()
+    findings = await get_findings(db)
+    top = findings[:3] if isinstance(findings, list) else []
+    max_risk = max([float(f.get("risk_score", 0.0) or 0.0) for f in top], default=0.0)
+    severity = "critical" if max_risk >= 85 else "high" if max_risk >= 70 else "medium" if max_risk >= 40 else "low"
+    confidence = 0.91 if top else 0.7
+    elapsed_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
+    return {
+        "task_id": f"threat-task-{int(started.timestamp())}",
+        "swarm_job_id": payload.swarm_job_id,
+        "claw": "threatclaw",
+        "status": "completed",
+        "severity": severity,
+        "confidence": confidence,
+        "risk_score": max_risk,
+        "findings": [
+            {"title": f.get("title", "Threat finding"), "detail": f.get("description", "")[:220]}
+            for f in top
+        ] or [{"title": "No threat findings yet", "detail": "Run /threatclaw/scan to seed deterministic threat findings."}],
+        "evidence": [],
+        "recommended_actions": [
+            "Contain impacted endpoints and revoke compromised credentials",
+            "Block malicious IOC infrastructure at network and DNS layers",
+        ],
+        "blocked_actions": [],
+        "policy_decisions": [],
+        "compliance_mappings": ["MITRE ATT&CK", "NIST IR-4"],
+        "execution_time_ms": elapsed_ms,
     }

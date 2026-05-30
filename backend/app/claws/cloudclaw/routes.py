@@ -19,6 +19,7 @@ from app.services.secrets_manager import get_credential
 from app.claws.cloudclaw.providers import aws as aws_adapter
 from app.claws.cloudclaw.providers import azure as azure_adapter
 from app.claws.cloudclaw.providers import gcp as gcp_adapter
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("cloudclaw")
 
@@ -47,6 +48,15 @@ PROVIDER_CONFIG = [
         "adapter": gcp_adapter,
     },
 ]
+
+
+class CloudTaskRequest(BaseModel):
+    swarm_job_id: Optional[str] = None
+    task_type: str = "investigate_cloud_risk"
+    input: dict = Field(default_factory=dict)
+    classification: str = "internal"
+    model_profile: Optional[str] = None
+    allowed_actions: list[str] = Field(default_factory=lambda: ["read", "analyze", "recommend"])
 
 
 # ─── Helper: look up connector + credentials ─────────────────────────────────
@@ -231,4 +241,49 @@ async def trigger_scan(db: AsyncSession = Depends(get_db)):
             f"CloudClaw scan complete. {total_created} new findings, "
             f"{total_updated} updated across {len(PROVIDER_CONFIG)} providers."
         ),
+    }
+
+
+@router.post("/task", summary="Execute focused CloudClaw swarm task")
+async def run_cloud_task(payload: CloudTaskRequest, db: AsyncSession = Depends(get_db)):
+    started = datetime.utcnow()
+    stmt = (
+        select(Finding)
+        .where(Finding.claw == CLAW_NAME)
+        .order_by(desc(Finding.risk_score), desc(Finding.created_at))
+        .limit(5)
+    )
+    result = await db.execute(stmt)
+    findings = result.scalars().all()
+    max_risk = max([float(f.risk_score or 0.0) for f in findings], default=0.0)
+    severity = "critical" if max_risk >= 85 else "high" if max_risk >= 70 else "medium" if max_risk >= 40 else "low"
+    confidence = 0.88 if findings else 0.7
+    elapsed_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
+    finding_rows = [
+        {
+            "title": f.title,
+            "detail": f"{f.provider or 'cloud'} finding severity={f.severity.value if hasattr(f.severity, 'value') else f.severity}",
+        }
+        for f in findings[:3]
+    ] or [{"title": "No cloud findings persisted yet", "detail": "Run /cloudclaw/scan or configure providers."}]
+
+    return {
+        "task_id": f"cloud-task-{int(started.timestamp())}",
+        "swarm_job_id": payload.swarm_job_id,
+        "claw": "cloudclaw",
+        "status": "completed",
+        "severity": severity,
+        "confidence": confidence,
+        "risk_score": max_risk,
+        "findings": finding_rows,
+        "evidence": [],
+        "recommended_actions": [
+            "Review public exposure and IAM misconfiguration findings",
+            "Validate cloud provider guardrail baselines",
+        ],
+        "blocked_actions": [],
+        "policy_decisions": [],
+        "compliance_mappings": ["CIS Cloud Controls", "NIST AC-6"],
+        "execution_time_ms": elapsed_ms,
     }

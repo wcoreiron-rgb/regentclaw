@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from typing import Optional
 
@@ -64,6 +64,15 @@ class IdentityClawStats(BaseModel):
     orphaned_identities: int
     high_risk_identities: int
     pending_approvals: int
+
+
+class IdentityTaskRequest(BaseModel):
+    swarm_job_id: Optional[str] = None
+    task_type: str = "investigate_identity_risk"
+    input: dict = Field(default_factory=dict)
+    classification: str = "internal"
+    model_profile: Optional[str] = None
+    allowed_actions: list[str] = Field(default_factory=lambda: ["read", "analyze", "recommend"])
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -273,3 +282,45 @@ async def get_identity_providers(db: AsyncSession = Depends(get_db)):
         }
         for c in providers
     ]
+
+
+@router.post("/task", summary="Execute focused IdentityClaw swarm task")
+async def run_identity_task(payload: IdentityTaskRequest, db: AsyncSession = Depends(get_db)):
+    started = datetime.utcnow()
+    identities = await db.execute(select(Identity).order_by(desc(Identity.risk_score)).limit(5))
+    top = identities.scalars().all()
+    high = [i for i in top if (i.risk_score or 0) >= 70]
+    max_risk = max([float(i.risk_score or 0.0) for i in top], default=0.0)
+    confidence = 0.9 if high else 0.72
+    severity = "critical" if max_risk >= 85 else "high" if max_risk >= 70 else "medium" if max_risk >= 40 else "low"
+    elapsed_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
+    findings = [
+        {
+            "title": f"High-risk identity: {i.name}",
+            "detail": f"Identity score {float(i.risk_score or 0.0)} with status {i.status.value if hasattr(i.status, 'value') else i.status}",
+        }
+        for i in high[:3]
+    ]
+    if not findings:
+        findings = [{"title": "No high-risk identity found", "detail": "Top identities are below high-risk threshold."}]
+
+    return {
+        "task_id": f"identity-task-{int(started.timestamp())}",
+        "swarm_job_id": payload.swarm_job_id,
+        "claw": "identityclaw",
+        "status": "completed",
+        "severity": severity,
+        "confidence": confidence,
+        "risk_score": max_risk,
+        "findings": findings,
+        "evidence": [],
+        "recommended_actions": [
+            "Review privileged assignments for top-risk identities",
+            "Enforce step-up auth on high-risk identities",
+        ],
+        "blocked_actions": [],
+        "policy_decisions": [],
+        "compliance_mappings": ["NIST AC-2", "ISO27001 A.5.16"],
+        "execution_time_ms": elapsed_ms,
+    }

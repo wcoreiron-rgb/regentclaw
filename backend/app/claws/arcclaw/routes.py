@@ -20,7 +20,7 @@ from app.claws.arcclaw.security_agent import run_security_agent, TOOLS
 from app.models.connector import Connector
 from app.services import secrets_manager
 from app.models.connector import ConnectorStatus
-from pydantic import BaseModel as PydanticBase
+from pydantic import BaseModel as PydanticBase, Field
 from typing import Optional as Opt
 
 router = APIRouter(prefix="/arcclaw", tags=["ArcClaw — AI Security"])
@@ -218,6 +218,54 @@ async def get_arcclaw_findings(limit: int = 50, db: AsyncSession = Depends(get_d
             "timestamp": e.timestamp.isoformat() if e.timestamp else None,
         })
     return findings
+
+
+class ArcTaskRequest(PydanticBase):
+    swarm_job_id: Opt[str] = None
+    task_type: str = "investigate_ai_risk"
+    input: dict = Field(default_factory=dict)
+    classification: str = "internal"
+    model_profile: Opt[str] = None
+    allowed_actions: list[str] = Field(default_factory=lambda: ["read", "analyze", "recommend"])
+
+
+@router.post("/task", summary="Execute focused ArcClaw swarm task")
+async def run_arc_task(payload: ArcTaskRequest, db: AsyncSession = Depends(get_db)):
+    started = datetime.utcnow()
+    result = await db.execute(select(AIEvent).order_by(desc(AIEvent.timestamp)).limit(5))
+    events = result.scalars().all()
+    max_risk = max([float(e.risk_score or 0.0) for e in events], default=0.0)
+    severity = severity_from_score(max_risk)
+    confidence = 0.89 if events else 0.7
+    elapsed_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
+    rows = [
+        {
+            "title": f"AI event: {e.event_type.value}",
+            "detail": f"Outcome={e.outcome.value}, score={float(e.risk_score or 0.0)}",
+        }
+        for e in events[:3]
+    ] or [{"title": "No AI governance events yet", "detail": "Submit /arcclaw/events or /arcclaw/chat traffic first."}]
+
+    return {
+        "task_id": f"arc-task-{int(started.timestamp())}",
+        "swarm_job_id": payload.swarm_job_id,
+        "claw": "arcclaw",
+        "status": "completed",
+        "severity": severity,
+        "confidence": confidence,
+        "risk_score": max_risk,
+        "findings": rows,
+        "evidence": [],
+        "recommended_actions": [
+            "Review blocked/flagged prompts for prompt-injection patterns",
+            "Harden model-call policy for sensitive prompt classes",
+        ],
+        "blocked_actions": [],
+        "policy_decisions": [],
+        "compliance_mappings": ["OWASP LLM Top 10", "NIST AI RMF"],
+        "execution_time_ms": elapsed_ms,
+    }
 
 
 @router.get("/providers", summary="ArcClaw provider connection status")
