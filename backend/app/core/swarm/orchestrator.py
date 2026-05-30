@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime
+from typing import Awaitable, Callable
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.swarm.aggregator import aggregate_task_outputs
-from app.core.swarm.dispatcher import execute_task
+from app.core.swarm.dispatcher import execute_task, execute_task_by_id
 from app.core.swarm.judge import judge_swarm_result
 from app.core.swarm.planner import select_participants
 from app.core.swarm.schemas import SwarmJobCreate
@@ -103,10 +104,78 @@ async def run_swarm_job_in_session(db: AsyncSession, job_id: UUID) -> None:
         await db.commit()
 
 
+async def _run_bounded_parallel_tasks(
+    task_ids: list[UUID],
+    parallelism: int,
+    runner: Callable[[UUID], Awaitable[dict | None]],
+) -> tuple[list[dict], list[Exception]]:
+    semaphore = asyncio.Semaphore(max(1, parallelism))
+    outputs: list[dict] = []
+    failures: list[Exception] = []
+
+    async def _run(task_id: UUID) -> None:
+        async with semaphore:
+            try:
+                out = await runner(task_id)
+                if out:
+                    outputs.append(out)
+            except Exception as exc:  # pragma: no cover - defensive failure capture
+                failures.append(exc)
+
+    await asyncio.gather(*(_run(task_id) for task_id in task_ids))
+    return outputs, failures
+
+
 async def run_swarm_job(job_id: UUID) -> None:
     """
-    Executes a swarm job with bounded parallelism.
+    Executes a swarm job with bounded parallelism for production/background runs.
     Uses a fresh DB session because this is called from background tasks.
     """
     async with AsyncSessionLocal() as db:
-        await run_swarm_job_in_session(db, job_id)
+        result = await db.execute(select(SwarmJob).where(SwarmJob.id == job_id))
+        job = result.scalar_one_or_none()
+        if not job:
+            return
+        if job.status in {SwarmJobStatus.CANCELLED, SwarmJobStatus.COMPLETED}:
+            return
+
+        job.status = SwarmJobStatus.RUNNING
+        job.started_at = datetime.utcnow()
+        await db.commit()
+
+        task_result = await db.execute(select(SwarmTask).where(SwarmTask.swarm_job_id == job.id))
+        tasks = task_result.scalars().all()
+        task_ids = [task.id for task in tasks if task.status != SwarmTaskStatus.CANCELLED]
+
+        try:
+            normalized_outputs, failures = await _run_bounded_parallel_tasks(
+                task_ids=task_ids,
+                parallelism=job.parallelism or 1,
+                runner=execute_task_by_id,
+            )
+
+            await db.refresh(job)
+            if job.status == SwarmJobStatus.CANCELLED:
+                return
+
+            if failures and not normalized_outputs:
+                job.status = SwarmJobStatus.FAILED
+                job.error_message = "; ".join(str(e) for e in failures[:3])
+                job.completed_at = datetime.utcnow()
+                await db.commit()
+                return
+
+            aggregate = aggregate_task_outputs(normalized_outputs)
+            judged = judge_swarm_result(job.name, aggregate, len(tasks))
+            job.confidence = judged["confidence"]
+            job.overall_severity = judged["overall_severity"]
+            job.final_summary = judged["executive_summary"]
+            job.result_json = json.dumps(judged)
+            job.status = SwarmJobStatus.REQUIRES_APPROVAL if judged["requires_human_approval"] else SwarmJobStatus.COMPLETED
+            job.completed_at = datetime.utcnow()
+            await db.commit()
+        except Exception as exc:
+            job.status = SwarmJobStatus.FAILED
+            job.error_message = str(exc)
+            job.completed_at = datetime.utcnow()
+            await db.commit()

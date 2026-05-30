@@ -5,9 +5,12 @@ import json
 import time
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.fabric.providers.agt import get_agt_adapter
 from app.models.swarm import SwarmTask, SwarmTaskStatus
 
@@ -96,3 +99,16 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
     task.completed_at = datetime.utcnow()
     await db.commit()
     return output
+
+
+async def execute_task_by_id(task_id: UUID) -> dict[str, Any] | None:
+    """
+    Execute a task in an isolated DB session.
+    Used by background swarm execution for real parallelism.
+    """
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(SwarmTask).where(SwarmTask.id == task_id))
+        task = result.scalar_one_or_none()
+        if not task:
+            return None
+        return await execute_task(db, task)
