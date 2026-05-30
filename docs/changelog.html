@@ -335,6 +335,55 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!--  v0.3.0 — Swarm + ModelClaw Foundation                              -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <div class="release">
+    <div class="release-dot" style="background: var(--blue);"></div>
+
+    <div class="release-header">
+      <div>
+        <div class="release-title">Swarm Parallel Runtime + ModelClaw Foundation</div>
+        <div class="release-meta" style="margin-top:6px;">
+          <span class="tag tag-new">New Feature</span>
+          <span class="tag tag-feat">Swarm</span>
+          <span class="tag tag-sec">Governance</span>
+          <span class="release-date">May 30, 2026 &nbsp;·&nbsp; v0.3.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="release-body">
+      <div class="release-description">
+        This release moves Swarm from proof-of-concept execution toward governed runtime behavior:
+        bounded parallel task execution, real claw task routing, live stream visibility, ModelClaw
+        scaffolding, and Swarm Judge synthesis routed through a dedicated model profile.
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">What's New</div>
+        <ul class="change-list">
+          <li><strong>Bounded parallel swarm execution</strong> shipped for background jobs (Semaphore + gather) instead of sequential loops.</li>
+          <li><strong>Real claw task routing</strong> in dispatcher now targets <code>/task</code>-equivalent handlers for IdentityClaw, CloudClaw, ThreatClaw, and ArcClaw with deterministic fallback for unsupported claws.</li>
+          <li><strong>Live swarm stream endpoint</strong> added: <code>GET /api/v1/swarm/jobs/{id}/stream</code> (SSE events for job/task lifecycle).</li>
+          <li><strong>ModelClaw scaffold</strong> added with governed route/profile/provider/call-audit APIs under <code>/api/v1/modelclaw/*</code>.</li>
+          <li><strong>Swarm Judge synthesis</strong> now uses ModelClaw via dedicated <code>swarm_judge_profile</code> and falls back to deterministic summary when policy blocks or profile constraints apply.</li>
+        </ul>
+      </div>
+
+      <div class="change-section">
+        <div class="change-section-title">Verification</div>
+        <ul class="change-list">
+          <li><strong>Swarm parallelism tests</strong> added to verify bounded concurrency.</li>
+          <li><strong>Claw task contract tests</strong> added for the four shipped <code>/task</code> claws.</li>
+          <li><strong>Dispatcher routing tests</strong> added for both real-handler and fallback paths.</li>
+          <li><strong>Swarm SSE test</strong> added to verify stream events and terminal lifecycle completion behavior.</li>
+          <li><strong>ModelClaw + Swarm Judge tests</strong> added for allow and denied/fallback synthesis paths.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
   <!--  v0.2.1 — AGT/Swarm Runtime Hardening                               -->
   <!-- ════════════════════════════════════════════════════════════════════ -->
   <div class="release">

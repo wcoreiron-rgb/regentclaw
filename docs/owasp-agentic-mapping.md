@@ -1,6 +1,6 @@
 # OWASP Top 10 for LLM Applications (2025) — RegentClaw Evidence Matrix
 
-**Date:** 2026-05-29  
+**Date:** 2026-05-30  
 **Version:** 1.0  
 **Scope:** RegentClaw Zero Trust Security Platform (self-hosted)
 
@@ -282,4 +282,4 @@
 
 ---
 
-*Last updated: 2026-05-29. Maintained by the RegentClaw security team.*
+*Last updated: 2026-05-30. Maintained by the RegentClaw security team.*

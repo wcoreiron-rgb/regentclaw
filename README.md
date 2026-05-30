@@ -85,7 +85,7 @@ RegentClaw maintains an honest, evidence-backed self-assessment against the **OW
 | [Agentic ASI Top 10 Mapping (Markdown)](docs/owasp-asi-mapping.md) | Markdown |
 | [Platform Maturity Matrix (Markdown)](docs/maturity-matrix.md) | Markdown |
 
-**Current posture (2026-05-29):**
+**Current posture (2026-05-30):**
 
 | Category | Status |
 |---|---|
@@ -189,25 +189,31 @@ RegentClaw now exposes AGT rollout through a provider boundary instead of direct
 
 Detailed rollout plan: `docs/agt-3.2-regentclaw-plan.md`
 
-## Latest Updates (May 28, 2026)
+## Latest Updates (May 30, 2026)
 
-- Trust Fabric:
-  - Added live MCP scan controls in UI (`/trust-fabric`) wired to `POST /api/v1/trust-fabric/mcp/scan`.
-  - Added regression coverage for:
-    - `GET /api/v1/trust-fabric/multi-agent/status`
-    - `POST /api/v1/trust-fabric/mcp/scan`
-- Swarm:
-  - Added secure-channel visibility per task in `/swarm/[id]` (E2E messaging status).
-  - Improved `/swarm` list with participants and runtime columns for faster validation.
-  - Added test coverage for `AGT_ENABLE_E2E_MESSAGING` enabled/disabled paths.
-- Platform reliability:
-  - Fixed route shadowing on `GET /api/v1/policy-packs/stats`.
-  - Fixed schedule delete FK issue by clearing linked `agent_runs.schedule_id`.
-  - Fixed autonomy emergency payload shape to accept object JSON from UI.
-  - Added run replay alias endpoint: `GET /api/v1/orchestrations/run-replay/{run_id}`.
-  - Added compatibility endpoints for claw contract consistency:
-    - `/api/v1/arcclaw/findings`, `/api/v1/arcclaw/providers`
-    - `/api/v1/identityclaw/findings`, `/api/v1/identityclaw/providers`
+- Swarm runtime:
+  - Swarm background execution now uses bounded parallelism (Semaphore + gather) instead of sequential task loops.
+  - Dispatcher now routes supported claws to real focused task handlers (`/task`) with deterministic fallback for unsupported claws.
+  - Added live SSE stream endpoint: `GET /api/v1/swarm/jobs/{id}/stream` with `job_snapshot`, `task_started`, `task_completed`, and `job_completed` events.
+- Core claw task contract:
+  - Added `POST /task` for:
+    - `/api/v1/identityclaw/task`
+    - `/api/v1/cloudclaw/task`
+    - `/api/v1/threatclaw/task`
+    - `/api/v1/arcclaw/task`
+  - Standard task response fields now align with Swarm Task Contract (`risk_score`, `confidence`, `recommended_actions`, `policy_decisions`, `execution_time_ms`, etc.).
+- ModelClaw scaffold:
+  - Added `ModelClaw` module at `backend/app/core/modelclaw/` with providers, profiles, routed calls, and call audit surfaces.
+  - New endpoints:
+    - `GET /api/v1/modelclaw/providers`
+    - `GET /api/v1/modelclaw/profiles`
+    - `POST /api/v1/modelclaw/profiles`
+    - `POST /api/v1/modelclaw/route`
+    - `GET /api/v1/modelclaw/calls`
+  - Model routes are enforced through Trust Fabric decisions before response.
+- Swarm Judge synthesis:
+  - Added dedicated `swarm_judge_profile`.
+  - Swarm Judge now attempts ModelClaw-routed synthesis and falls back to deterministic summary when denied/unavailable.
 
 ## Claw Modules (24 total)
 
