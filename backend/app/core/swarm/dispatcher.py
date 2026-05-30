@@ -11,6 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
+from app.claws.arcclaw.routes import ArcTaskRequest, run_arc_task
+from app.claws.cloudclaw.routes import CloudTaskRequest, run_cloud_task
+from app.claws.identityclaw.routes import IdentityTaskRequest, run_identity_task
+from app.claws.threatclaw.routes import ThreatTaskRequest, run_task as run_threat_task
 from app.fabric.providers.agt import get_agt_adapter
 from app.models.swarm import SwarmTask, SwarmTaskStatus
 
@@ -38,35 +42,52 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
     task.started_at = started
     await db.commit()
 
-    # Simulate bounded async work per claw for parallel orchestration.
-    base = (sum(ord(c) for c in task.claw) % 30) + 40
-    simulated_ms = base * 10
-    await asyncio.sleep(min(simulated_ms / 1000.0, 0.45))
+    try:
+        task_input = json.loads(task.input_json) if task.input_json else {}
+    except Exception:
+        task_input = {}
 
-    risk_score = float(base)
-    severity = _severity_from_risk(risk_score)
-    confidence = round(min(0.99, 0.60 + (risk_score / 200.0)), 2)
-    output = {
-        "task_id": str(task.id),
-        "swarm_job_id": str(task.swarm_job_id),
-        "claw": task.claw,
-        "status": "completed",
-        "severity": severity,
-        "confidence": confidence,
-        "risk_score": risk_score,
-        "findings": [
-            {
-                "title": f"{task.claw} simulated analysis",
-                "detail": f"Deterministic Sprint 1 task result for {task.task_type}.",
-            }
-        ],
-        "evidence": [],
-        "recommended_actions": [],
-        "blocked_actions": [],
-        "policy_decisions": [],
-        "compliance_mappings": [],
-        "execution_time_ms": simulated_ms,
-    }
+    real_output = await _execute_real_task_if_supported(
+        db=db,
+        claw=task.claw,
+        task_id=str(task.id),
+        swarm_job_id=str(task.swarm_job_id),
+        task_type=task.task_type,
+        model_profile=task.model_profile,
+        task_input=task_input,
+    )
+    if real_output is not None:
+        output = real_output
+    else:
+        # Fallback simulation for claws that have not shipped /task yet.
+        base = (sum(ord(c) for c in task.claw) % 30) + 40
+        simulated_ms = base * 10
+        await asyncio.sleep(min(simulated_ms / 1000.0, 0.45))
+
+        risk_score = float(base)
+        severity = _severity_from_risk(risk_score)
+        confidence = round(min(0.99, 0.60 + (risk_score / 200.0)), 2)
+        output = {
+            "task_id": str(task.id),
+            "swarm_job_id": str(task.swarm_job_id),
+            "claw": task.claw,
+            "status": "completed",
+            "severity": severity,
+            "confidence": confidence,
+            "risk_score": risk_score,
+            "findings": [
+                {
+                    "title": f"{task.claw} simulated analysis",
+                    "detail": f"Deterministic fallback task result for {task.task_type}.",
+                }
+            ],
+            "evidence": [],
+            "recommended_actions": [],
+            "blocked_actions": [],
+            "policy_decisions": [],
+            "compliance_mappings": [],
+            "execution_time_ms": simulated_ms,
+        }
 
     adapter = get_agt_adapter()
     secure_channel = adapter.send_secure_message(
@@ -76,8 +97,8 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
         payload={
             "task_id": str(task.id),
             "swarm_job_id": str(task.swarm_job_id),
-            "severity": severity,
-            "risk_score": risk_score,
+            "severity": output.get("severity"),
+            "risk_score": output.get("risk_score"),
         },
     )
     if secure_channel.get("enabled"):
@@ -91,13 +112,49 @@ async def execute_task(db: AsyncSession, task: SwarmTask) -> dict[str, Any]:
         )
 
     task.status = SwarmTaskStatus.COMPLETED
-    task.severity = severity
-    task.confidence = confidence
-    task.risk_score = risk_score
-    task.execution_time_ms = simulated_ms
+    task.severity = output.get("severity")
+    task.confidence = output.get("confidence")
+    task.risk_score = output.get("risk_score")
+    task.execution_time_ms = int(output.get("execution_time_ms") or 0)
     task.output_json = json.dumps(output)
     task.completed_at = datetime.utcnow()
     await db.commit()
+    return output
+
+
+async def _execute_real_task_if_supported(
+    db: AsyncSession,
+    claw: str,
+    task_id: str,
+    swarm_job_id: str,
+    task_type: str,
+    model_profile: str | None,
+    task_input: dict[str, Any],
+) -> dict[str, Any] | None:
+    payload = {
+        "swarm_job_id": swarm_job_id,
+        "task_type": task_type,
+        "input": task_input,
+        "classification": "internal",
+        "model_profile": model_profile,
+        "allowed_actions": ["read", "analyze", "recommend"],
+    }
+
+    if claw == "identityclaw":
+        output = await run_identity_task(IdentityTaskRequest(**payload), db)
+    elif claw == "cloudclaw":
+        output = await run_cloud_task(CloudTaskRequest(**payload), db)
+    elif claw == "threatclaw":
+        output = await run_threat_task(ThreatTaskRequest(**payload), db)
+    elif claw == "arcclaw":
+        output = await run_arc_task(ArcTaskRequest(**payload), db)
+    else:
+        return None
+
+    # Normalize identity keys from claw-local task IDs to swarm task identity.
+    output["task_id"] = task_id
+    output["swarm_job_id"] = swarm_job_id
+    output["claw"] = claw
     return output
 
 

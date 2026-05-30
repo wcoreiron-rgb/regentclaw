@@ -1,0 +1,45 @@
+import json
+import uuid
+
+import pytest
+
+from app.core.swarm.dispatcher import execute_task
+from app.models.swarm import SwarmTask, SwarmTaskStatus
+
+
+def _mk_task(claw: str, task_type: str = "investigate") -> SwarmTask:
+    return SwarmTask(
+        id=uuid.uuid4(),
+        swarm_job_id=uuid.uuid4(),
+        claw=claw,
+        task_type=task_type,
+        status=SwarmTaskStatus.PENDING,
+        model_profile=None,
+        input_json=json.dumps({"scope": "test"}),
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_routes_to_real_identity_task(db_session):
+    task = _mk_task("identityclaw")
+    db_session.add(task)
+    await db_session.commit()
+
+    out = await execute_task(db_session, task)
+    assert out["claw"] == "identityclaw"
+    assert out["status"] == "completed"
+    assert isinstance(out["recommended_actions"], list)
+    # Real /task path has specific recommendations, not simulated fallback title.
+    assert not out["findings"][0]["title"].endswith("simulated analysis")
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_falls_back_for_unsupported_claw(db_session):
+    task = _mk_task("vendorclaw")
+    db_session.add(task)
+    await db_session.commit()
+
+    out = await execute_task(db_session, task)
+    assert out["claw"] == "vendorclaw"
+    assert out["status"] == "completed"
+    assert out["findings"][0]["title"] == "vendorclaw simulated analysis"
