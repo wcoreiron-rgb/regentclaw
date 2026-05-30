@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
 from app.core.swarm.aggregator import aggregate_task_outputs
 from app.core.swarm.dispatcher import execute_task, execute_task_by_id
-from app.core.swarm.judge import judge_swarm_result
+from app.core.swarm.judge import judge_swarm_result_with_modelclaw
 from app.core.swarm.planner import select_participants
 from app.core.swarm.schemas import SwarmJobCreate
 from app.models.swarm import SwarmJob, SwarmJobStatus, SwarmTask, SwarmTaskStatus
@@ -89,7 +89,14 @@ async def run_swarm_job_in_session(db: AsyncSession, job_id: UUID) -> None:
             return
 
         aggregate = aggregate_task_outputs(normalized_outputs)
-        judged = judge_swarm_result(job.name, aggregate, len(tasks))
+        judged = await judge_swarm_result_with_modelclaw(
+            db,
+            job.name,
+            aggregate,
+            len(tasks),
+            classification=job.classification,
+            swarm_job_id=str(job.id),
+        )
         job.confidence = judged["confidence"]
         job.overall_severity = judged["overall_severity"]
         job.final_summary = judged["executive_summary"]
@@ -166,7 +173,14 @@ async def run_swarm_job(job_id: UUID) -> None:
                 return
 
             aggregate = aggregate_task_outputs(normalized_outputs)
-            judged = judge_swarm_result(job.name, aggregate, len(tasks))
+            judged = await judge_swarm_result_with_modelclaw(
+                db,
+                job.name,
+                aggregate,
+                len(tasks),
+                classification=job.classification,
+                swarm_job_id=str(job.id),
+            )
             job.confidence = judged["confidence"]
             job.overall_severity = judged["overall_severity"]
             job.final_summary = judged["executive_summary"]

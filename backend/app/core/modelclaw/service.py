@@ -43,6 +43,19 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "fallback_profile": None,
         "created_at": datetime.utcnow(),
     },
+    "swarm_judge_profile": {
+        "name": "swarm_judge_profile",
+        "provider": "nvidia_nim",
+        "model": "meta/llama-3.3-70b-instruct",
+        "allowed_claws": ["swarm_judge"],
+        "allowed_data_classes": ["public", "internal", "confidential"],
+        "temperature": 0.1,
+        "max_tokens": 3000,
+        "tool_calling": False,
+        "requires_redaction": True,
+        "fallback_profile": "ollama_local_fallback",
+        "created_at": datetime.utcnow(),
+    },
 }
 
 _MODEL_CALLS: list[dict[str, Any]] = []
