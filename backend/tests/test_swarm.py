@@ -114,3 +114,22 @@ async def test_swarm_task_secure_channel_enabled(client):
         # Restore default toggle for test isolation across modules.
         settings.AGT_ENABLE_E2E_MESSAGING = False
         agt_adapter_module._adapter = None
+
+
+@pytest.mark.asyncio
+async def test_swarm_job_stream_emits_events(client):
+    create = await client.post(BASE, json=_payload(name="Swarm Stream Test"))
+    assert create.status_code == 201, create.text
+    job_id = create.json()["id"]
+
+    seen_event_headers = []
+    async with client.stream("GET", f"{BASE}/{job_id}/stream?timeout_seconds=2&poll_interval_ms=200") as response:
+        assert response.status_code == 200
+        async for line in response.aiter_lines():
+            if line.startswith("event: "):
+                seen_event_headers.append(line.replace("event: ", "").strip())
+            if "job_completed" in seen_event_headers:
+                break
+
+    assert "job_snapshot" in seen_event_headers
+    assert "job_completed" in seen_event_headers

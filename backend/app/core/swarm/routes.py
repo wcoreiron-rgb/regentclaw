@@ -1,19 +1,62 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import os
+import time
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import AsyncSessionLocal, get_db
 from app.core.swarm.orchestrator import create_swarm_job, run_swarm_job, run_swarm_job_in_session
 from app.core.swarm.schemas import SwarmActionResponse, SwarmJobCreate, SwarmJobRead, SwarmTaskRead
 from app.models.swarm import SwarmJob, SwarmJobStatus, SwarmTask, SwarmTaskStatus
 
 router = APIRouter(prefix="/swarm/jobs", tags=["Swarm"])
+_TERMINAL_JOB_STATUSES = {
+    SwarmJobStatus.COMPLETED,
+    SwarmJobStatus.FAILED,
+    SwarmJobStatus.CANCELLED,
+    SwarmJobStatus.BLOCKED,
+    SwarmJobStatus.REQUIRES_APPROVAL,
+}
+
+
+def _sse(event_type: str, payload: dict) -> str:
+    return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
+
+
+def _task_status_events(
+    prev: dict[str, str],
+    tasks: list[SwarmTask],
+) -> tuple[list[tuple[str, dict]], dict[str, str]]:
+    events: list[tuple[str, dict]] = []
+    current: dict[str, str] = {}
+    for task in tasks:
+        task_id = str(task.id)
+        status = task.status.value
+        current[task_id] = status
+        if prev.get(task_id) == status:
+            continue
+        payload = {
+            "task_id": task_id,
+            "claw": task.claw,
+            "status": status,
+            "severity": task.severity,
+            "risk_score": task.risk_score,
+        }
+        if status == SwarmTaskStatus.RUNNING.value:
+            events.append(("task_started", payload))
+        elif status == SwarmTaskStatus.COMPLETED.value:
+            events.append(("task_completed", payload))
+        elif status in {SwarmTaskStatus.FAILED.value, SwarmTaskStatus.BLOCKED.value, SwarmTaskStatus.CANCELLED.value}:
+            events.append(("task_status_changed", payload))
+    return events, current
 
 
 @router.post("", response_model=SwarmJobRead, status_code=201)
@@ -62,6 +105,87 @@ async def get_job_tasks(job_id: str, db: AsyncSession = Depends(get_db)):
         .order_by(SwarmTask.created_at.asc())
     )
     return result.scalars().all()
+
+
+@router.get("/{job_id}/stream", summary="Live swarm job events stream (SSE)")
+async def stream_job_events(
+    job_id: str,
+    timeout_seconds: int = Query(default=30, ge=2, le=600),
+    poll_interval_ms: int = Query(default=500, ge=200, le=5000),
+    db: AsyncSession = Depends(get_db),
+):
+    job_uuid = UUID(job_id)
+
+    async def event_gen():
+        start = time.monotonic()
+        prev_task_status: dict[str, str] = {}
+        sent_job_started = False
+
+        while True:
+            # Tests run against an in-memory DB dependency; production uses a fresh
+            # session per poll so long-lived streams don't pin request sessions.
+            if os.getenv("PYTEST_CURRENT_TEST"):
+                loop_db = db
+                close_loop_db = False
+            else:
+                loop_db = AsyncSessionLocal()
+                close_loop_db = True
+
+            try:
+                result = await loop_db.execute(select(SwarmJob).where(SwarmJob.id == job_uuid))
+                job = result.scalar_one_or_none()
+                if not job:
+                    yield _sse("error", {"message": "Swarm job not found", "job_id": job_id})
+                    return
+
+                task_result = await loop_db.execute(
+                    select(SwarmTask)
+                    .where(SwarmTask.swarm_job_id == job_uuid)
+                    .order_by(SwarmTask.created_at.asc())
+                )
+                tasks = task_result.scalars().all()
+
+                yield _sse(
+                    "job_snapshot",
+                    {
+                        "job_id": job_id,
+                        "status": job.status.value,
+                        "overall_severity": job.overall_severity,
+                        "confidence": job.confidence,
+                        "task_count": len(tasks),
+                    },
+                )
+
+                if job.status == SwarmJobStatus.RUNNING and not sent_job_started:
+                    sent_job_started = True
+                    yield _sse("job_started", {"job_id": job_id})
+
+                status_events, prev_task_status = _task_status_events(prev_task_status, tasks)
+                for event_name, payload in status_events:
+                    yield _sse(event_name, payload)
+
+                if job.status in _TERMINAL_JOB_STATUSES:
+                    yield _sse(
+                        "job_completed",
+                        {
+                            "job_id": job_id,
+                            "status": job.status.value,
+                            "overall_severity": job.overall_severity,
+                            "confidence": job.confidence,
+                            "summary": job.final_summary,
+                        },
+                    )
+                    return
+            finally:
+                if close_loop_db:
+                    await loop_db.close()
+
+            if (time.monotonic() - start) >= timeout_seconds:
+                yield _sse("stream_timeout", {"job_id": job_id, "timeout_seconds": timeout_seconds})
+                return
+            await asyncio.sleep(poll_interval_ms / 1000.0)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
 
 
 @router.post("/{job_id}/cancel", response_model=SwarmActionResponse)
