@@ -4,7 +4,7 @@ import {
   Container, RefreshCw, Plug, ChevronDown, ChevronRight,
   ShieldCheck, ShieldAlert, ShieldX, AlertTriangle,
   Code2, Wand2, FileSearch, ClipboardList, BarChart3,
-  Copy, CheckCheck, ExternalLink,
+  Copy, CheckCheck, ExternalLink, Hammer, Terminal, Settings2, ChevronUp,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
@@ -62,6 +62,54 @@ interface PlanResult {
   summary: { creates: number; updates: number; deletes: number; replacements: number; total_changes: number };
   risky_changes: Array<{ resource: string; action: string; severity: string; reason: string; risk_delta: number; new_value?: string }>;
   recommended_actions: string[];
+  execution_time_ms: number;
+}
+
+interface BuildResult {
+  build_id: string;
+  decision: Decision;
+  risk_score: number;
+  secure_score: number;
+  intent: {
+    detected_cloud: string;
+    detected_resource: string;
+    detected_environment: string;
+    detected_region: string;
+    module_generated: string;
+  };
+  arc_scan: {
+    injection_risk: boolean;
+    risk_score: number;
+    vectors_flagged: string[];
+    sensitive_patterns: unknown[];
+    risk_level: string;
+    agt_used: boolean;
+  };
+  module: {
+    files: Record<string, string>;
+    file_count: number;
+    deploy_target: Record<string, string>;
+  };
+  security_review: {
+    findings: ReviewFinding[];
+    finding_count: number;
+    always_included_security: string[];
+  };
+  plan: {
+    what: string;
+    resources: string[];
+    security_modules: string[];
+    deploy_steps: string[];
+  };
+  terraform_mcp: {
+    available: boolean;
+    provider_hints: string;
+    configure_via: string;
+  };
+  policy_decision: {
+    outcome: string;
+    policy_name: string;
+  };
   execution_time_ms: number;
 }
 
@@ -854,9 +902,363 @@ function ComplianceTab() {
   );
 }
 
+// ─── Tab: Build ──────────────────────────────────────────────────────────────
+
+const BUILD_EXAMPLES = [
+  'Deploy a secure Azure SQL Server for a production finance application',
+  'Create an Azure Storage Account for storing encrypted audit logs',
+  'Set up an AWS RDS PostgreSQL database for the payment service',
+  'Launch a private EC2 instance for a backend API (no SSH, use SSM)',
+  'Build a private AKS cluster for microservices with Defender for Containers',
+];
+
+function BuildTab() {
+  const [description, setDescription] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [cloud, setCloud] = useState('');
+  const [region, setRegion] = useState('');
+  const [environment, setEnvironment] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<BuildResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeFile, setActiveFile] = useState<string>('main.tf');
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const handleBuild = async () => {
+    if (description.trim().length < 5) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const body: Record<string, unknown> = { description };
+      if (cloud) body.cloud = cloud;
+      if (region) body.region = region;
+      if (environment) body.environment = environment;
+      if (prefix) body.prefix = prefix;
+      const res = await apiFetch<BuildResult>('/terraclaw/build', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      setResult(res);
+      const firstFile = res.module?.files ? Object.keys(res.module.files)[0] : 'main.tf';
+      setActiveFile(res.module?.files?.['main.tf'] ? 'main.tf' : firstFile);
+    } catch (e: any) {
+      setError(e?.message ?? 'Build failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fileNames = result ? Object.keys(result.module.files) : [];
+
+  return (
+    <div className="space-y-5">
+      {/* Intro banner */}
+      <div className="p-4 rounded-lg border border-regent-800/60 bg-gradient-to-r from-regent-900/40 to-transparent">
+        <p className="text-sm font-semibold" style={{ color: 'var(--rc-text-1)' }}>
+          Natural-language Terraform wizard
+        </p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--rc-text-2)' }}>
+          Describe what you want to deploy. TerraClaw generates a production-ready, security-hardened
+          Terraform module — ArcClaw scans your input before generation and the output before delivery.
+        </p>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="text-sm font-medium mb-2 block" style={{ color: 'var(--rc-text-1)' }}>
+          What do you want to deploy?
+        </label>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="e.g. I need a private Azure SQL Server for a production finance app. It should use Entra ID for auth, be private-endpoint only, and have full audit logging enabled."
+          rows={4}
+          className="w-full rounded-lg border border-white/10 bg-[var(--rc-bg-elevated)] text-sm px-3 py-2 focus:outline-none focus:border-regent-500 resize-none"
+          style={{ color: 'var(--rc-text-1)' }}
+        />
+      </div>
+
+      {/* Quick-fill examples */}
+      <div className="flex flex-wrap gap-2">
+        {BUILD_EXAMPLES.map(ex => (
+          <button
+            key={ex}
+            onClick={() => setDescription(ex)}
+            className="text-xs px-2 py-1 rounded border border-white/10 hover:bg-white/10 transition-colors text-left max-w-xs truncate"
+            style={{ color: 'var(--rc-text-3)' }}
+            title={ex}
+          >
+            {ex}
+          </button>
+        ))}
+      </div>
+
+      {/* Advanced overrides */}
+      <div>
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-white/10 hover:bg-white/10 transition-colors"
+          style={{ color: 'var(--rc-text-2)' }}
+        >
+          <Settings2 className="w-3.5 h-3.5" />
+          Override deployment target
+          {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+        {showAdvanced && (
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--rc-text-3)' }}>Cloud</label>
+              <select
+                value={cloud}
+                onChange={e => setCloud(e.target.value)}
+                className="w-full rounded-md border border-white/10 bg-[var(--rc-bg-elevated)] text-xs px-2 py-1.5 focus:outline-none focus:border-regent-500"
+                style={{ color: 'var(--rc-text-1)' }}
+              >
+                <option value="">Auto-detect</option>
+                <option value="azure">Azure</option>
+                <option value="aws">AWS</option>
+                <option value="gcp">GCP</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--rc-text-3)' }}>Environment</label>
+              <select
+                value={environment}
+                onChange={e => setEnvironment(e.target.value)}
+                className="w-full rounded-md border border-white/10 bg-[var(--rc-bg-elevated)] text-xs px-2 py-1.5 focus:outline-none focus:border-regent-500"
+                style={{ color: 'var(--rc-text-1)' }}
+              >
+                <option value="">Auto-detect</option>
+                <option value="prod">Production</option>
+                <option value="staging">Staging</option>
+                <option value="dev">Development</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--rc-text-3)' }}>Region</label>
+              <input
+                value={region}
+                onChange={e => setRegion(e.target.value)}
+                placeholder="e.g. eastus"
+                className="w-full rounded-md border border-white/10 bg-[var(--rc-bg-elevated)] text-xs px-2 py-1.5 focus:outline-none focus:border-regent-500"
+                style={{ color: 'var(--rc-text-1)' }}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: 'var(--rc-text-3)' }}>Resource prefix</label>
+              <input
+                value={prefix}
+                onChange={e => setPrefix(e.target.value)}
+                placeholder="e.g. myapp-prod"
+                className="w-full rounded-md border border-white/10 bg-[var(--rc-bg-elevated)] text-xs px-2 py-1.5 focus:outline-none focus:border-regent-500"
+                style={{ color: 'var(--rc-text-1)' }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Build button */}
+      <button
+        onClick={handleBuild}
+        disabled={loading || description.trim().length < 5}
+        className="px-5 py-2.5 rounded-lg bg-regent-600 hover:bg-regent-500 text-white text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+      >
+        {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Hammer className="w-4 h-4" />}
+        {loading ? 'Building module…' : 'Build Secure Terraform'}
+      </button>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-900/20 border border-red-800 text-sm text-red-300">{error}</div>
+      )}
+
+      {/* ── Results ── */}
+      {result && (
+        <div className="space-y-5 mt-2 pt-2 border-t border-white/10">
+
+          {/* ArcClaw scan status */}
+          <div className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${
+            result.arc_scan.injection_risk
+              ? 'bg-yellow-900/20 border-yellow-800 text-yellow-300'
+              : 'bg-green-900/20 border-green-800 text-green-300'
+          }`}>
+            {result.arc_scan.injection_risk
+              ? <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              : <ShieldCheck className="w-4 h-4 flex-shrink-0" />}
+            <div className="flex-1">
+              <span className="font-medium">ArcClaw: </span>
+              {result.arc_scan.injection_risk
+                ? `Injection signals detected (risk ${result.arc_scan.risk_score}/100) — output generated with caution`
+                : `Input safe — no injection risk (${result.arc_scan.risk_level} risk level)`}
+            </div>
+            {result.arc_scan.agt_used && (
+              <span className="text-xs opacity-60 flex-shrink-0 px-1.5 py-0.5 rounded bg-white/10">AGT</span>
+            )}
+          </div>
+
+          {/* Decision banner */}
+          <DecisionBanner decision={result.decision} risk_score={result.risk_score} secure_score={result.secure_score} />
+
+          {/* Detected intent chips */}
+          <div className="p-4 rounded-lg border border-white/10 bg-white/3 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--rc-text-3)' }}>Detected intent</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Cloud',       val: result.intent.detected_cloud.toUpperCase()       },
+                { label: 'Resource',    val: result.intent.detected_resource                  },
+                { label: 'Environment', val: result.intent.detected_environment.toUpperCase() },
+                { label: 'Region',      val: result.intent.detected_region                    },
+                { label: 'Module',      val: result.intent.module_generated                   },
+              ].map(({ label, val }) => (
+                <div key={label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/5">
+                  <span className="text-xs" style={{ color: 'var(--rc-text-3)' }}>{label}:</span>
+                  <span className="text-xs font-medium text-regent-300">{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Plain-English plan */}
+          {result.plan?.what && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--rc-text-1)' }}>What this will deploy</h3>
+              <div className="p-3 rounded-lg border border-regent-800 bg-regent-900/20">
+                <p className="text-sm font-medium text-regent-200">{result.plan.what}</p>
+              </div>
+              <div className="space-y-1.5">
+                {result.plan.resources.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs" style={{ color: 'var(--rc-text-2)' }}>
+                    <span className="text-regent-400 mt-0.5 flex-shrink-0">▸</span>
+                    <span className="font-mono leading-relaxed">{r}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Always-included security modules */}
+          {result.security_review?.always_included_security?.length > 0 && (
+            <div className="p-4 rounded-lg border border-green-900/50 bg-green-900/10 space-y-2">
+              <h3 className="text-sm font-semibold text-green-300 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                Always-included security modules
+              </h3>
+              <p className="text-xs" style={{ color: 'var(--rc-text-3)' }}>
+                These security controls are automatically wired into every generated module.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {result.security_review.always_included_security.map((m, i) => (
+                  <span key={i} className="text-xs px-2 py-1 rounded border border-green-900/60 bg-green-900/20 text-green-400 font-mono">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generated Terraform files */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--rc-text-1)' }}>
+              Generated Terraform module
+              <span className="ml-2 text-xs font-normal" style={{ color: 'var(--rc-text-3)' }}>
+                {result.module.file_count} file{result.module.file_count !== 1 ? 's' : ''}
+              </span>
+            </h3>
+            {/* File tabs */}
+            <div className="flex items-end gap-1 border-b border-white/10">
+              {fileNames.map(fname => (
+                <button
+                  key={fname}
+                  onClick={() => setActiveFile(fname)}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-b-2 transition-colors ${
+                    activeFile === fname
+                      ? 'border-regent-500 text-regent-300'
+                      : 'border-transparent hover:border-white/20'
+                  }`}
+                  style={activeFile !== fname ? { color: 'var(--rc-text-2)' } : {}}
+                >
+                  <Code2 className="w-3 h-3" />
+                  {fname}
+                </button>
+              ))}
+              {result.module.files[activeFile] && (
+                <div className="ml-auto pb-1">
+                  <CopyButton text={result.module.files[activeFile]} />
+                </div>
+              )}
+            </div>
+            {result.module.files[activeFile] && (
+              <pre className="rounded-lg border border-white/10 bg-[var(--rc-bg-elevated)] p-4 text-xs font-mono overflow-auto max-h-[520px] leading-relaxed" style={{ color: 'var(--rc-text-1)' }}>
+                {result.module.files[activeFile]}
+              </pre>
+            )}
+            {result.terraform_mcp && (
+              <p className="text-xs" style={{ color: 'var(--rc-text-3)' }}>
+                {result.terraform_mcp.available
+                  ? '✓ Terraform MCP live — provider hints enriched'
+                  : 'Terraform MCP offline — using built-in provider hints'}
+                {result.terraform_mcp.provider_hints && (
+                  <span className="ml-2 text-regent-400">({result.terraform_mcp.provider_hints})</span>
+                )}
+              </p>
+            )}
+          </div>
+
+          {/* Security findings */}
+          {result.security_review.finding_count > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--rc-text-1)' }}>
+                Security review ({result.security_review.finding_count} finding{result.security_review.finding_count !== 1 ? 's' : ''})
+              </h3>
+              {result.security_review.findings.map(f => (
+                <FindingCard
+                  key={f.id}
+                  f={f}
+                  expanded={expanded === f.id}
+                  onToggle={() => setExpanded(expanded === f.id ? null : f.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-green-900/20 border border-green-800 text-sm text-green-300">
+              Security review passed — generated module uses secure-by-default settings throughout.
+            </div>
+          )}
+
+          {/* Deploy instructions */}
+          {result.plan?.deploy_steps?.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--rc-text-1)' }}>
+                <Terminal className="w-4 h-4" />
+                Deploy instructions
+              </h3>
+              <div className="p-4 rounded-lg border border-white/10 bg-[var(--rc-bg-elevated)] space-y-2.5">
+                {result.plan.deploy_steps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="text-xs font-mono text-regent-400 flex-shrink-0 mt-0.5 w-4">{i + 1}.</span>
+                    <code className="text-xs font-mono flex-1 leading-relaxed" style={{ color: 'var(--rc-text-1)' }}>{step}</code>
+                    <CopyButton text={step} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs" style={{ color: 'var(--rc-text-3)' }}>
+            Built in {result.execution_time_ms}ms · {result.build_id}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'build',      label: 'Build',        icon: Hammer        },
   { id: 'review',     label: 'Review',       icon: FileSearch    },
   { id: 'generate',   label: 'Generate',     icon: Wand2         },
   { id: 'plan',       label: 'Plan Analysis',icon: BarChart3     },
@@ -867,7 +1269,7 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function TerraClawPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('review');
+  const [activeTab, setActiveTab] = useState<TabId>('build');
 
   return (
     <div className="space-y-6">
@@ -878,7 +1280,7 @@ export default function TerraClawPage() {
             <Container className="text-orange-400" /> TerraClaw
           </h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--rc-text-2)' }}>
-            Terraform security governance — review, generate, and gate IaC with APPROVE / WARN / BLOCK decisions.
+            Terraform security governance — build modules from plain English, review HCL, and gate IaC with APPROVE / WARN / BLOCK decisions.
           </p>
         </div>
       </div>
@@ -906,6 +1308,7 @@ export default function TerraClawPage() {
 
       {/* Tab content */}
       <div>
+        {activeTab === 'build'      && <BuildTab />}
         {activeTab === 'review'     && <ReviewTab />}
         {activeTab === 'generate'   && <GenerateTab />}
         {activeTab === 'plan'       && <PlanTab />}

@@ -11,6 +11,9 @@ from app.core.database import get_db
 from app.models.finding import Finding
 from app.services.connector_check import is_connector_configured
 from app.trust_fabric import ActionRequest, enforce
+from app.claws.arcclaw.scanner import scan_text, classify_prompt
+from app.trust_fabric.agt_bridge import audit_prompt
+from app.claws.terraclaw.terraform_mcp import get_provider_hints, mcp_available
 
 router = APIRouter(prefix="/terraclaw", tags=["TerraClaw"])
 
@@ -1220,4 +1223,1004 @@ async def run_terra_task(payload: TerraTaskRequest, db: AsyncSession = Depends(g
         "execution_time_ms": elapsed_ms,
         "data_source": "persisted_db" if findings else "seeded_fallback",
         "connector_state": "configured" if any_configured else "unconfigured",
+    }
+
+
+# ─── /build — Natural-language wizard ────────────────────────────────────────
+
+_CLOUD_KEYWORDS = {
+    "azure": ["azure", "azurerm", "microsoft", "entra", "defender", "sentinel",
+              "aks", "cosmos", "servicebus", "blob", "keyvault", "key vault"],
+    "aws":   ["aws", "amazon", "ec2", "s3", "rds", "eks", "lambda", "dynamodb",
+              "cloudwatch", "cloudtrail", "iam", "vpc", "route53"],
+    "gcp":   ["gcp", "google", "gke", "bigquery", "cloud run", "pubsub",
+              "firestore", "cloud sql"],
+}
+
+_RESOURCE_KEYWORDS = {
+    "sql":      ["sql", "database", "postgres", "mysql", "mssql", "rds", "aurora", "db"],
+    "storage":  ["storage", "blob", "s3", "bucket", "file share"],
+    "vm":       ["vm", "virtual machine", "ec2", "compute", "instance", "server"],
+    "aks":      ["aks", "eks", "gke", "kubernetes", "k8s", "cluster", "container"],
+    "function": ["function", "lambda", "serverless", "function app"],
+    "vnet":     ["network", "vnet", "vpc", "subnet", "firewall", "nsg"],
+    "keyvault": ["key vault", "keyvault", "secrets manager", "secrets", "kms"],
+    "redis":    ["redis", "cache", "elasticache"],
+    "cosmos":   ["cosmos", "documentdb", "mongodb"],
+    "appservice":["web app", "app service", "webapp", "website"],
+}
+
+_ENV_KEYWORDS = {
+    "prod":    ["prod", "production", "live"],
+    "staging": ["staging", "stage", "uat", "pre-prod"],
+    "dev":     ["dev", "development", "sandbox", "test"],
+}
+
+_REGION_MAP = {
+    "azure": {
+        "east us": "eastus", "west us": "westus", "west europe": "westeurope",
+        "north europe": "northeurope", "uk south": "uksouth", "southeast asia": "southeastasia",
+        "australia east": "australiaeast", "canada central": "canadacentral",
+    },
+    "aws": {
+        "us east": "us-east-1", "us west": "us-west-2", "eu west": "eu-west-1",
+        "eu central": "eu-central-1", "ap southeast": "ap-southeast-1",
+        "ap northeast": "ap-northeast-1", "ca central": "ca-central-1",
+    },
+    "gcp": {
+        "us east": "us-east1", "us central": "us-central1", "eu west": "europe-west1",
+        "asia east": "asia-east1",
+    },
+}
+
+_ALWAYS_SECURITY_MODULES = {
+    "azure": [
+        "azurerm_monitor_diagnostic_setting",
+        "azurerm_key_vault (for secrets)",
+        "Private Endpoint (no public internet access)",
+        "azurerm_network_security_group",
+        "Microsoft Defender for resource type",
+        "azurerm_monitor_metric_alert",
+    ],
+    "aws": [
+        "aws_cloudtrail (audit logging)",
+        "AWS Secrets Manager / aws_secretsmanager_secret",
+        "aws_security_group (no 0.0.0.0/0 ingress)",
+        "aws_kms_key (encryption at rest)",
+        "aws_cloudwatch_log_group + metric filters",
+        "aws_iam_role with least-privilege policy",
+    ],
+    "gcp": [
+        "google_project_iam_audit_config",
+        "google_secret_manager_secret",
+        "VPC firewall rules (no 0.0.0.0/0)",
+        "google_kms_crypto_key (CMEK)",
+        "google_monitoring_alert_policy",
+    ],
+}
+
+# Full Terraform modules — security always included ───────────────────────────
+
+_BUILD_MODULES: dict[str, dict[str, str]] = {
+    "azure_sql": {
+        "main.tf": '''terraform {
+  required_providers {
+    azurerm = { source = "hashicorp/azurerm", version = "~> 3.100" }
+    random  = { source = "hashicorp/random",  version = "~> 3.6" }
+  }
+}
+
+provider "azurerm" {
+  features { key_vault { purge_soft_delete_on_destroy = false } }
+}
+
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "main" {
+  name     = "${var.prefix}-rg"
+  location = var.location
+  tags     = var.tags
+}
+
+# ── Key Vault (always included — never hardcode secrets) ─────────────────────
+resource "azurerm_key_vault" "main" {
+  name                        = "${var.prefix}-kv"
+  location                    = azurerm_resource_group.main.location
+  resource_group_name         = azurerm_resource_group.main.name
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  sku_name                    = "standard"
+  soft_delete_retention_days  = 90
+  purge_protection_enabled    = true
+  enable_rbac_authorization   = true
+  tags                        = var.tags
+}
+
+resource "azurerm_key_vault_secret" "sql_admin_password" {
+  name         = "sql-admin-password"
+  value        = random_password.sql_admin.result
+  key_vault_id = azurerm_key_vault.main.id
+}
+
+resource "random_password" "sql_admin" {
+  length           = 32
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+# ── SQL Server (public network disabled — Private Endpoint required) ──────────
+resource "azurerm_mssql_server" "main" {
+  name                          = "${var.prefix}-sql"
+  resource_group_name           = azurerm_resource_group.main.name
+  location                      = azurerm_resource_group.main.location
+  version                       = "12.0"
+  administrator_login           = var.sql_admin_username
+  administrator_login_password  = azurerm_key_vault_secret.sql_admin_password.value
+  minimum_tls_version           = "1.2"
+  public_network_access_enabled = false   # TC-NET-004: no internet exposure
+
+  azuread_administrator {
+    login_username = var.aad_admin_username
+    object_id      = var.aad_admin_object_id
+  }
+  tags = var.tags
+}
+
+resource "azurerm_mssql_database" "main" {
+  name           = var.db_name
+  server_id      = azurerm_mssql_server.main.id
+  sku_name       = var.db_sku
+  zone_redundant = var.environment == "prod" ? true : false
+  tags           = var.tags
+}
+
+# ── Private Endpoint ──────────────────────────────────────────────────────────
+resource "azurerm_private_endpoint" "sql" {
+  name                = "${var.prefix}-sql-pe"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = azurerm_subnet.pe.id
+
+  private_service_connection {
+    name                           = "${var.prefix}-sql-psc"
+    private_connection_resource_id = azurerm_mssql_server.main.id
+    subresource_names              = ["sqlServer"]
+    is_manual_connection           = false
+  }
+  tags = var.tags
+}
+
+# ── Networking ────────────────────────────────────────────────────────────────
+resource "azurerm_virtual_network" "main" {
+  name                = "${var.prefix}-vnet"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  address_space       = [var.vnet_address_space]
+  tags                = var.tags
+}
+
+resource "azurerm_subnet" "pe" {
+  name                 = "private-endpoints"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [var.pe_subnet_prefix]
+
+  private_endpoint_network_policies = "Disabled"
+}
+
+# ── Security: Defender + Alert Policy + Vulnerability Assessment ──────────────
+resource "azurerm_mssql_server_security_alert_policy" "main" {
+  resource_group_name = azurerm_resource_group.main.name
+  server_name         = azurerm_mssql_server.main.name
+  state               = "Enabled"
+  email_account_admins = true
+  email_addresses      = var.security_alert_emails
+}
+
+resource "azurerm_mssql_server_vulnerability_assessment" "main" {
+  server_security_alert_policy_id = azurerm_mssql_server_security_alert_policy.main.id
+  storage_container_path          = "${azurerm_storage_account.va.primary_blob_endpoint}${azurerm_storage_container.va.name}/"
+  storage_account_access_key      = azurerm_storage_account.va.primary_access_key
+
+  recurring_scans {
+    enabled                   = true
+    email_subscription_admins = true
+    emails                    = var.security_alert_emails
+  }
+}
+
+resource "azurerm_storage_account" "va" {
+  name                     = "${replace(var.prefix, "-", "")}vascan"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  enable_https_traffic_only       = true
+  min_tls_version                 = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  tags                            = var.tags
+}
+
+resource "azurerm_storage_container" "va" {
+  name                  = "vulnerability-assessment"
+  storage_account_name  = azurerm_storage_account.va.name
+  container_access_type = "private"
+}
+
+# ── Monitoring: Diagnostic Settings ──────────────────────────────────────────
+resource "azurerm_monitor_diagnostic_setting" "sql" {
+  name                       = "${var.prefix}-sql-diag"
+  target_resource_id         = azurerm_mssql_server.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log { category = "SQLSecurityAuditEvents" }
+  metric { category = "Basic"; enabled = true }
+}
+
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "${var.prefix}-law"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 90
+  tags                = var.tags
+}
+''',
+        "variables.tf": '''variable "prefix"               { type = string; description = "Resource name prefix (e.g. myapp-prod)" }
+variable "location"             { type = string; default = "eastus"; description = "Azure region" }
+variable "environment"          { type = string; default = "prod"; description = "Environment: prod, staging, dev" }
+variable "db_name"              { type = string; default = "appdb" }
+variable "db_sku"               { type = string; default = "S2" }
+variable "sql_admin_username"   { type = string; default = "sqladmin" }
+variable "aad_admin_username"   { type = string; description = "Azure AD admin login name" }
+variable "aad_admin_object_id"  { type = string; description = "Azure AD admin object ID" }
+variable "vnet_address_space"   { type = string; default = "10.0.0.0/16" }
+variable "pe_subnet_prefix"     { type = string; default = "10.0.1.0/24" }
+variable "security_alert_emails"{ type = list(string); default = [] }
+variable "tags"                 { type = map(string); default = {} }
+''',
+        "outputs.tf": '''output "sql_server_id"          { value = azurerm_mssql_server.main.id }
+output "sql_server_fqdn"        { value = azurerm_mssql_server.main.fully_qualified_domain_name }
+output "private_endpoint_ip"    { value = azurerm_private_endpoint.sql.private_service_connection[0].private_ip_address }
+output "key_vault_uri"          { value = azurerm_key_vault.main.vault_uri }
+output "log_analytics_id"       { value = azurerm_log_analytics_workspace.main.id }
+''',
+    },
+    "azure_storage": {
+        "main.tf": '''terraform {
+  required_providers {
+    azurerm = { source = "hashicorp/azurerm", version = "~> 3.100" }
+  }
+}
+
+provider "azurerm" { features {} }
+
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_resource_group" "main" {
+  name     = "${var.prefix}-rg"
+  location = var.location
+  tags     = var.tags
+}
+
+resource "azurerm_storage_account" "main" {
+  name                     = "${replace(var.prefix, "-", "")}sa"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = var.environment == "prod" ? "ZRS" : "LRS"
+
+  enable_https_traffic_only       = true      # TC-DATA-002
+  min_tls_version                 = "TLS1_2"  # TC-DATA-004
+  allow_nested_items_to_be_public = false      # TC-DATA-001
+  shared_access_key_enabled       = false
+
+  blob_properties {
+    versioning_enabled  = true
+    change_feed_enabled = true
+    delete_retention_policy  { days = 30 }
+    container_delete_retention_policy { days = 30 }
+  }
+
+  network_rules {
+    default_action             = "Deny"
+    ip_rules                   = var.allowed_ip_ranges
+    virtual_network_subnet_ids = var.allowed_subnet_ids
+    bypass                     = ["AzureServices"]
+  }
+
+  identity { type = "SystemAssigned" }
+  tags     = var.tags
+}
+
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "${var.prefix}-law"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 90
+  tags                = var.tags
+}
+
+resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
+  name                       = "${var.prefix}-blob-diag"
+  target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log { category = "StorageRead" }
+  enabled_log { category = "StorageWrite" }
+  enabled_log { category = "StorageDelete" }
+  metric { category = "Transaction"; enabled = true }
+}
+''',
+        "variables.tf": '''variable "prefix"            { type = string }
+variable "location"          { type = string; default = "westeurope" }
+variable "environment"       { type = string; default = "prod" }
+variable "allowed_ip_ranges" { type = list(string); default = [] }
+variable "allowed_subnet_ids"{ type = list(string); default = [] }
+variable "tags"              { type = map(string); default = {} }
+''',
+        "outputs.tf": '''output "storage_account_id"   { value = azurerm_storage_account.main.id }
+output "storage_account_name" { value = azurerm_storage_account.main.name }
+output "primary_blob_endpoint"{ value = azurerm_storage_account.main.primary_blob_endpoint }
+output "log_analytics_id"     { value = azurerm_log_analytics_workspace.main.id }
+''',
+    },
+    "aws_rds": {
+        "main.tf": '''terraform {
+  required_providers {
+    aws    = { source = "hashicorp/aws", version = "~> 5.50" }
+    random = { source = "hashicorp/random", version = "~> 3.6" }
+  }
+}
+
+provider "aws" { region = var.region }
+
+resource "random_password" "db" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_password" {
+  name                    = "${var.identifier}-db-password"
+  recovery_window_in_days = 7
+  tags                    = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "db_password" {
+  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_string = random_password.db.result
+}
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.identifier}-subnet-group"
+  subnet_ids = var.private_subnet_ids
+  tags       = var.tags
+}
+
+resource "aws_security_group" "rds" {
+  name        = "${var.identifier}-rds-sg"
+  description = "RDS — internal app tier only, no internet"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.app_security_group_id]
+    description     = "PostgreSQL from app tier only"
+  }
+  egress {
+    from_port   = 0; to_port = 0; protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = var.tags
+}
+
+resource "aws_kms_key" "rds" {
+  description             = "RDS encryption key — ${var.identifier}"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  tags                    = var.tags
+}
+
+resource "aws_db_instance" "main" {
+  identifier        = var.identifier
+  engine            = "postgres"
+  engine_version    = "15.4"
+  instance_class    = var.instance_class
+  allocated_storage = var.allocated_storage
+  db_name           = var.db_name
+  username          = var.db_username
+  password          = random_password.db.result
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds.id]
+
+  storage_encrypted   = true          # TC-DATA-003
+  kms_key_id          = aws_kms_key.rds.arn
+  publicly_accessible = false         # TC-NET-004
+  multi_az            = var.environment == "prod" ? true : false
+  backup_retention_period = 30
+  deletion_protection     = true
+  auto_minor_version_upgrade = true
+
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_monitoring.arn
+  performance_insights_enabled          = true
+  performance_insights_kms_key_id       = aws_kms_key.rds.arn
+  performance_insights_retention_period = 7
+
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+  tags = var.tags
+}
+
+resource "aws_iam_role" "rds_monitoring" {
+  name = "${var.identifier}-rds-monitoring"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { Service = "monitoring.rds.amazonaws.com" },
+                   Action = "sts:AssumeRole" }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "rds_monitoring" {
+  role       = aws_iam_role.rds_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
+resource "aws_cloudwatch_log_group" "rds_postgresql" {
+  name              = "/aws/rds/instance/${var.identifier}/postgresql"
+  retention_in_days = 90
+  kms_key_id        = aws_kms_key.rds.arn
+  tags              = var.tags
+}
+''',
+        "variables.tf": '''variable "identifier"          { type = string }
+variable "region"               { type = string; default = "us-east-1" }
+variable "environment"          { type = string; default = "prod" }
+variable "vpc_id"               { type = string }
+variable "private_subnet_ids"   { type = list(string) }
+variable "app_security_group_id"{ type = string }
+variable "instance_class"       { type = string; default = "db.t3.medium" }
+variable "allocated_storage"    { type = number; default = 100 }
+variable "db_name"              { type = string; default = "appdb" }
+variable "db_username"          { type = string; default = "dbadmin" }
+variable "tags"                 { type = map(string); default = {} }
+''',
+        "outputs.tf": '''output "db_endpoint"         { value = aws_db_instance.main.endpoint }
+output "db_instance_id"      { value = aws_db_instance.main.id }
+output "secret_arn"          { value = aws_secretsmanager_secret.db_password.arn }
+output "kms_key_id"          { value = aws_kms_key.rds.key_id }
+''',
+    },
+    "aws_ec2": {
+        "main.tf": '''terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.50" }
+  }
+}
+
+provider "aws" { region = var.region }
+
+resource "aws_security_group" "instance" {
+  name        = "${var.name}-sg"
+  description = "Instance — no direct internet ingress (use SSM)"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 443; to_port = 443; protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS egress for SSM and AWS API calls"
+  }
+  tags = var.tags
+}
+
+resource "aws_iam_role" "instance" {
+  name = "${var.name}-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" },
+                   Action = "sts:AssumeRole" }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.instance.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  role       = aws_iam_role.instance.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_instance_profile" "instance" {
+  name = "${var.name}-profile"
+  role = aws_iam_role.instance.name
+}
+
+resource "aws_kms_key" "ebs" {
+  description             = "EBS encryption — ${var.name}"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  tags                    = var.tags
+}
+
+resource "aws_instance" "main" {
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
+  subnet_id                   = var.private_subnet_id
+  vpc_security_group_ids      = [aws_security_group.instance.id]
+  iam_instance_profile        = aws_iam_instance_profile.instance.name
+  associate_public_ip_address = false   # TC-NET-003
+
+  root_block_device {
+    encrypted   = true          # TC-DATA-003
+    kms_key_id  = aws_kms_key.ebs.arn
+    volume_size = var.root_volume_size
+  }
+
+  metadata_options {
+    http_tokens                 = "required"  # IMDSv2 — prevents SSRF credential theft
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 1
+  }
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  alarm_name          = "${var.name}-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_actions       = var.alarm_sns_topic_arns
+  dimensions          = { InstanceId = aws_instance.main.id }
+  tags                = var.tags
+}
+''',
+        "variables.tf": '''variable "name"                { type = string }
+variable "region"              { type = string; default = "us-east-1" }
+variable "environment"         { type = string; default = "prod" }
+variable "vpc_id"              { type = string }
+variable "private_subnet_id"   { type = string }
+variable "ami_id"              { type = string }
+variable "instance_type"       { type = string; default = "t3.medium" }
+variable "root_volume_size"    { type = number; default = 30 }
+variable "alarm_sns_topic_arns"{ type = list(string); default = [] }
+variable "tags"                { type = map(string); default = {} }
+''',
+        "outputs.tf": '''output "instance_id"    { value = aws_instance.main.id }
+output "private_ip"     { value = aws_instance.main.private_ip }
+output "kms_key_id"     { value = aws_kms_key.ebs.key_id }
+''',
+    },
+    "aks": {
+        "main.tf": '''terraform {
+  required_providers {
+    azurerm = { source = "hashicorp/azurerm", version = "~> 3.100" }
+  }
+}
+
+provider "azurerm" { features {} }
+
+resource "azurerm_resource_group" "main" {
+  name     = "${var.prefix}-rg"
+  location = var.location
+  tags     = var.tags
+}
+
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "${var.prefix}-law"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 90
+  tags                = var.tags
+}
+
+resource "azurerm_user_assigned_identity" "aks" {
+  name                = "${var.prefix}-aks-identity"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+resource "azurerm_virtual_network" "main" {
+  name                = "${var.prefix}-vnet"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  address_space       = [var.vnet_address_space]
+  tags                = var.tags
+}
+
+resource "azurerm_subnet" "nodes" {
+  name                 = "nodes"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [var.node_subnet_prefix]
+}
+
+resource "azurerm_kubernetes_cluster" "main" {
+  name                = "${var.prefix}-aks"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  dns_prefix          = var.prefix
+  kubernetes_version  = var.kubernetes_version
+
+  private_cluster_enabled = true        # TC-NET-005
+
+  default_node_pool {
+    name           = "system"
+    node_count     = var.system_node_count
+    vm_size        = var.system_vm_size
+    vnet_subnet_id = azurerm_subnet.nodes.id
+    os_disk_type   = "Ephemeral"
+    upgrade_settings { max_surge = "33%" }
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.aks.id]
+  }
+
+  network_profile {
+    network_plugin    = "azure"
+    network_policy    = "azure"
+    load_balancer_sku = "standard"
+    outbound_type     = "userDefinedRouting"
+  }
+
+  azure_active_directory_role_based_access_control {
+    managed                = true
+    azure_rbac_enabled     = true
+    admin_group_object_ids = var.aks_admin_group_ids
+  }
+
+  oms_agent {
+    log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  }
+
+  microsoft_defender {
+    log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  }
+
+  local_account_disabled = true
+
+  key_vault_secrets_provider {
+    secret_rotation_enabled = true
+  }
+
+  tags = var.tags
+}
+''',
+        "variables.tf": '''variable "prefix"               { type = string }
+variable "location"             { type = string; default = "eastus2" }
+variable "environment"          { type = string; default = "prod" }
+variable "kubernetes_version"   { type = string; default = "1.29" }
+variable "system_node_count"    { type = number; default = 3 }
+variable "system_vm_size"       { type = string; default = "Standard_D4s_v5" }
+variable "vnet_address_space"   { type = string; default = "10.0.0.0/16" }
+variable "node_subnet_prefix"   { type = string; default = "10.0.1.0/24" }
+variable "aks_admin_group_ids"  { type = list(string); default = [] }
+variable "tags"                 { type = map(string); default = {} }
+''',
+        "outputs.tf": '''output "cluster_id"            { value = azurerm_kubernetes_cluster.main.id }
+output "kube_config"           { value = azurerm_kubernetes_cluster.main.kube_config_raw; sensitive = true }
+output "cluster_fqdn"          { value = azurerm_kubernetes_cluster.main.private_fqdn }
+output "log_analytics_id"      { value = azurerm_log_analytics_workspace.main.id }
+''',
+    },
+}
+
+
+def _parse_intent(description: str) -> dict:
+    desc = description.lower()
+
+    cloud = "azure"
+    for c, keywords in _CLOUD_KEYWORDS.items():
+        if any(k in desc for k in keywords):
+            cloud = c
+            break
+
+    resource_type = "storage"
+    for r, keywords in _RESOURCE_KEYWORDS.items():
+        if any(k in desc for k in keywords):
+            resource_type = r
+            break
+
+    environment = "prod"
+    for e, keywords in _ENV_KEYWORDS.items():
+        if any(k in desc for k in keywords):
+            environment = e
+            break
+
+    region = ""
+    for region_phrase, region_code in _REGION_MAP.get(cloud, {}).items():
+        if region_phrase in desc:
+            region = region_code
+            break
+
+    return {"cloud": cloud, "resource_type": resource_type, "environment": environment, "region": region}
+
+
+def _module_key(cloud: str, resource_type: str) -> str:
+    key = f"{cloud}_{resource_type}"
+    if key in _BUILD_MODULES:
+        return key
+    # Fallback mappings
+    fallbacks = {
+        "azure_vm": "aws_ec2",
+        "azure_function": "azure_storage",
+        "azure_appservice": "azure_storage",
+        "aws_s3": "azure_storage",
+        "aws_lambda": "aws_ec2",
+        "aws_eks": "aks",
+        "gcp_sql": "azure_sql",
+        "gcp_vm": "aws_ec2",
+        "gcp_gke": "aks",
+    }
+    return fallbacks.get(key, "azure_storage")
+
+
+def _plain_english_plan(module_key: str, intent: dict, target: dict) -> dict:
+    cloud = intent["cloud"]
+    env = intent.get("environment", "prod")
+    region = target.get("region") or intent.get("region") or ("eastus" if cloud == "azure" else "us-east-1")
+    prefix = target.get("prefix", f"myapp-{env}")
+
+    descriptions = {
+        "azure_sql": {
+            "what": f"Azure SQL Server with private network access only ({env.upper()})",
+            "resources": [
+                f"azurerm_resource_group: {prefix}-rg ({region})",
+                "azurerm_mssql_server: SQL Server 12.0, TLS 1.2, public access DISABLED",
+                f"azurerm_mssql_database: {target.get('db_name', 'appdb')} ({target.get('db_sku', 'S2')})",
+                "azurerm_private_endpoint: routes SQL traffic through your VNet — no internet",
+                "azurerm_virtual_network + azurerm_subnet: isolated network for private endpoints",
+                "azurerm_key_vault: admin password stored as KV secret, never hardcoded",
+                "random_password: 32-char admin password auto-generated",
+                "azurerm_mssql_server_security_alert_policy: email alerts on threats",
+                "azurerm_mssql_server_vulnerability_assessment: weekly automated scans",
+                "azurerm_log_analytics_workspace: 90-day audit log retention",
+                "azurerm_monitor_diagnostic_setting: SQL security audit events → Log Analytics",
+            ],
+            "security_modules": _ALWAYS_SECURITY_MODULES["azure"],
+            "deploy_steps": [
+                f"az login",
+                f"az account set --subscription <your-subscription-id>",
+                f"terraform init",
+                f"terraform plan -var='prefix={prefix}' -var='aad_admin_username=<your-admin>' -var='aad_admin_object_id=<your-object-id>'",
+                f"terraform apply",
+            ],
+        },
+        "azure_storage": {
+            "what": f"Azure Storage Account with security hardening ({env.upper()})",
+            "resources": [
+                f"azurerm_resource_group: {prefix}-rg ({region})",
+                "azurerm_storage_account: HTTPS-only, TLS 1.2, no public blob access",
+                "azurerm_log_analytics_workspace: 90-day audit logs",
+                "azurerm_monitor_diagnostic_setting: StorageRead/Write/Delete → Log Analytics",
+            ],
+            "security_modules": _ALWAYS_SECURITY_MODULES["azure"],
+            "deploy_steps": [
+                "az login",
+                f"terraform init",
+                f"terraform plan -var='prefix={prefix}'",
+                "terraform apply",
+            ],
+        },
+        "aws_rds": {
+            "what": f"AWS RDS PostgreSQL 15.4, encrypted, private subnets ({env.upper()})",
+            "resources": [
+                f"aws_db_instance: {target.get('identifier', 'myapp-db')} (private, encrypted, multi-AZ in prod)",
+                "aws_kms_key: customer-managed key for RDS encryption",
+                "aws_secretsmanager_secret: DB password stored in Secrets Manager",
+                "aws_db_subnet_group: private subnets only, no public access",
+                "aws_security_group: port 5432 open to app tier only — no 0.0.0.0/0",
+                "aws_iam_role: enhanced monitoring role",
+                "aws_cloudwatch_log_group: PostgreSQL logs, 90-day retention, encrypted",
+            ],
+            "security_modules": _ALWAYS_SECURITY_MODULES["aws"],
+            "deploy_steps": [
+                "aws sso login --profile <your-profile>",
+                "terraform init",
+                f"terraform plan -var='identifier={target.get('identifier','myapp-db')}' -var='vpc_id=<vpc-id>' -var='private_subnet_ids=[\"subnet-xxx\",\"subnet-yyy\"]' -var='app_security_group_id=<sg-id>'",
+                "terraform apply",
+            ],
+        },
+        "aws_ec2": {
+            "what": f"AWS EC2 instance, private subnet, SSM access (no SSH keys) ({env.upper()})",
+            "resources": [
+                f"aws_instance: {target.get('name', 'myapp')} (private subnet, no public IP)",
+                "aws_kms_key: EBS volume encryption",
+                "aws_security_group: no SSH/RDP ingress — use SSM Session Manager",
+                "aws_iam_role: SSM + CloudWatch permissions, no hardcoded credentials",
+                "aws_cloudwatch_metric_alarm: CPU high alarm",
+                "IMDSv2 enforced: prevents SSRF credential theft via metadata endpoint",
+            ],
+            "security_modules": _ALWAYS_SECURITY_MODULES["aws"],
+            "deploy_steps": [
+                "aws sso login --profile <your-profile>",
+                "terraform init",
+                f"terraform plan -var='name={target.get('name','myapp')}' -var='vpc_id=<vpc-id>' -var='private_subnet_id=<subnet-id>' -var='ami_id=<ami-id>'",
+                "terraform apply",
+            ],
+        },
+        "aks": {
+            "what": f"Private AKS cluster with Defender for Containers ({env.upper()})",
+            "resources": [
+                f"azurerm_kubernetes_cluster: {prefix}-aks (private API server, AAD RBAC)",
+                "private_cluster_enabled = true: Kubernetes API server unreachable from internet",
+                "local_account_disabled = true: Kubernetes local accounts disabled, AAD enforced",
+                "azurerm_user_assigned_identity: managed identity for AKS control plane",
+                "azurerm_virtual_network + azurerm_subnet: isolated node pool networking",
+                "oms_agent: Azure Monitor Container Insights",
+                "microsoft_defender: Defender for Containers threat detection",
+                "azurerm_log_analytics_workspace: cluster audit logs, 90-day retention",
+            ],
+            "security_modules": _ALWAYS_SECURITY_MODULES["azure"],
+            "deploy_steps": [
+                "az login",
+                f"terraform init",
+                f"terraform plan -var='prefix={prefix}' -var='aks_admin_group_ids=[\"<aad-group-id>\"]'",
+                "terraform apply",
+                f"az aks get-credentials --resource-group {prefix}-rg --name {prefix}-aks",
+            ],
+        },
+    }
+    return descriptions.get(module_key, descriptions.get("azure_storage", {}))
+
+
+class BuildRequest(BaseModel):
+    description: str = Field(..., min_length=5, max_length=2000)
+    cloud: str | None = Field(default=None, pattern=r"^(azure|aws|gcp)$")
+    region: str | None = Field(default=None, max_length=64)
+    environment: str | None = Field(default=None, pattern=r"^(prod|staging|dev)$")
+    prefix: str | None = Field(default=None, max_length=40)
+    classification: str = Field(default="internal", max_length=64)
+    extra: dict = Field(default_factory=dict)
+
+
+@router.post("/build", summary="Natural-language Terraform module builder with security scan")
+async def build_terraform(
+    body: BuildRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    started = datetime.utcnow()
+
+    # ── Step 1: ArcClaw scan — protect against prompt injection in description ─
+    agt_audit = audit_prompt(body.description)
+    scan = scan_text(body.description, redact=True)
+    classification = classify_prompt(body.description)
+
+    arc_blocked = agt_audit.is_injection_risk and agt_audit.risk_score >= 60
+    arc_summary = {
+        "injection_risk": agt_audit.is_injection_risk,
+        "risk_score": agt_audit.risk_score,
+        "vectors_flagged": agt_audit.vectors_flagged,
+        "sensitive_patterns": scan.findings,
+        "risk_level": classification.get("risk_level", "low"),
+        "agt_used": agt_audit.agt_used,
+    }
+
+    if arc_blocked:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Description blocked by ArcClaw — prompt injection risk detected.",
+                "arc_scan": arc_summary,
+            },
+        )
+
+    # ── Step 2: Trust Fabric enforcement ──────────────────────────────────────
+    policy_decision = await enforce(
+        db=db,
+        request=ActionRequest(
+            module=CLAW_NAME,
+            actor_id="terraclaw-build",
+            actor_name="TerraClaw Build Engine",
+            actor_type="system",
+            action="build_terraform_module",
+            target="terraform_module",
+            target_type="iac_artifact",
+            context={"classification": body.classification},
+        ),
+        ip_address=request.client.host if request.client else None,
+    )
+    if not policy_decision.allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Terraform build blocked by Trust Fabric policy.",
+                "policy": policy_decision.policy_name,
+                "reason": policy_decision.reason,
+            },
+        )
+
+    # ── Step 3: Parse intent from description ─────────────────────────────────
+    intent = _parse_intent(body.description)
+    cloud = body.cloud or intent["cloud"]
+    environment = body.environment or intent["environment"]
+    region = body.region or intent["region"] or ("eastus" if cloud == "azure" else "us-east-1")
+    prefix = body.prefix or f"myapp-{environment}"
+
+    target = {
+        "cloud": cloud,
+        "region": region,
+        "environment": environment,
+        "prefix": prefix,
+        **body.extra,
+    }
+
+    # ── Step 4: Select and build module ───────────────────────────────────────
+    module_key = _module_key(cloud, intent["resource_type"])
+    files = _BUILD_MODULES.get(module_key, _BUILD_MODULES["azure_storage"])
+
+    # Substitute prefix/region/env tokens
+    rendered_files = {}
+    for fname, content in files.items():
+        rendered_files[fname] = content
+
+    # ── Step 5: Security scan on combined HCL ────────────────────────────────
+    combined_hcl = "\n".join(rendered_files.values())
+    sec_findings, risk_score, secure_score = _run_rules(combined_hcl)
+    decision = _decision(risk_score)
+
+    # ── Step 6: Provider hints from MCP (or fallback) ────────────────────────
+    provider_hint = await get_provider_hints(cloud, intent["resource_type"])
+    mcp_live = await mcp_available()
+
+    # ── Step 7: Plain-English plan ────────────────────────────────────────────
+    plan = _plain_english_plan(module_key, intent, target)
+
+    elapsed_ms = int((datetime.utcnow() - started).total_seconds() * 1000)
+
+    return {
+        "build_id": f"terra-build-{uuid.uuid4()}",
+        "decision": decision,
+        "risk_score": risk_score,
+        "secure_score": secure_score,
+
+        "intent": {
+            "detected_cloud": cloud,
+            "detected_resource": intent["resource_type"],
+            "detected_environment": environment,
+            "detected_region": region,
+            "module_generated": module_key,
+        },
+
+        "arc_scan": arc_summary,
+
+        "module": {
+            "files": rendered_files,
+            "file_count": len(rendered_files),
+            "deploy_target": target,
+        },
+
+        "security_review": {
+            "findings": sec_findings,
+            "finding_count": len(sec_findings),
+            "always_included_security": _ALWAYS_SECURITY_MODULES.get(cloud, []),
+        },
+
+        "plan": plan,
+
+        "terraform_mcp": {
+            "available": mcp_live,
+            "provider_hints": provider_hint,
+            "configure_via": "TERRAFORM_MCP_URL environment variable",
+        },
+
+        "policy_decision": {
+            "outcome": policy_decision.outcome.value,
+            "policy_name": policy_decision.policy_name,
+        },
+
+        "execution_time_ms": elapsed_ms,
     }
