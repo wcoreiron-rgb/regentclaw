@@ -90,6 +90,7 @@ from app.claws.devclaw.routes import router as devclaw_router
 from app.claws.intelclaw.routes import router as intelclaw_router
 from app.claws.recoveryclaw.routes import router as recoveryclaw_router
 from app.claws.customclaw.routes import router as customclaw_router
+from app.claws.terraclaw.routes import router as terraclaw_router
 from app.api.routes.remediation import router as remediation_router
 from app.core.swarm.routes import router as swarm_router
 from app.core.modelclaw.routes import router as modelclaw_router
@@ -213,6 +214,7 @@ app.include_router(devclaw_router, prefix=PREFIX)
 app.include_router(intelclaw_router, prefix=PREFIX)
 app.include_router(recoveryclaw_router, prefix=PREFIX)
 app.include_router(customclaw_router, prefix=PREFIX)
+app.include_router(terraclaw_router, prefix=PREFIX)
 app.include_router(remediation_router, prefix=PREFIX)
 app.include_router(swarm_router, prefix=PREFIX)
 app.include_router(modelclaw_router, prefix=PREFIX)
