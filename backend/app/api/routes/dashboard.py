@@ -142,9 +142,12 @@ async def run_supply_chain_scan():
 
 @router.get("/control-center-summary", response_model=ControlCenterSummary, summary="Control Center unified summary")
 async def get_control_center_summary(db: AsyncSession = Depends(get_db)):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+    # Runtime tables in the Docker/Postgres dev stack store these timestamps as
+    # naive UTC values. Keep the cutoff naive too; asyncpg rejects mixing aware
+    # parameters with timestamp-without-time-zone columns.
+    since_24h = datetime.utcnow() - timedelta(hours=24)
 
     pending_commands = (
         await db.execute(

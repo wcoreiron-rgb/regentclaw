@@ -1,6 +1,6 @@
 # RegentClaw Maturity Matrix (2026)
 
-**Date:** 2026-05-31  
+**Date:** 2026-06-08  
 **Purpose:** Public, conservative status tracking for platform security/runtime maturity.
 
 Status legend:
@@ -23,6 +23,7 @@ Status legend:
 | Swarm runtime maturity | In Progress | Bounded parallel execution + real `/task` routing for Identity/Cloud/Threat/Arc/Access/Data/Dev/Endpoint/App/Log/Net/Compliance/Intel/Recovery/SaaS/Privacy/User/Insider/Vendor/AttackPath/Automation/Config/Exposure/Custom + SSE stream + connector-backed task paths for Identity/Entra, Cloud, Endpoint, and Dev + standardized connector-state/data-source metadata surfaced across all current swarm-routed claw task outputs + trigger/schedule-driven swarm launches (`START_SWARM`/`FIRE_SWARM`/`SWARM_JOB`) + pre-execution approval gating and approve-to-run flow + Sprint 6 suspicious-identity preset workflow + Microsoft identity incident preset workflow + remediation ticket handoff tests | Broaden connector-backed execution across additional claw providers and reduce simulation fallback usage in provider adapters |
 | Model routing maturity (ModelClaw) | In Progress | ModelClaw governed route/profile/provider/call-audit endpoints + tenant-scoped profile/call filtering + persisted runtime state file | DB-backed provider/profile storage + richer provider adapters + per-tenant policy packs |
 | MemoryClaw runtime integration | In Progress | Swarm task input gets safe redacted memory context; task outputs expose `memory_context_loaded`; high-risk Swarm Judge results create proposed incident memory entries after safety scan | Add analyst approval workflow for memory commits, version/rollback UI, tenant-scoped memory tables |
+| Terraform/IaC governance | In Progress | TerraClaw ships FastAPI/UI surfaces for natural-language Terraform module build, Terraform HCL review, secure Terraform generation, Terraform plan risk analysis, seeded/persisted findings, provider status for Terraform Cloud/tfsec/Checkov/Infracost, normalized 0-100 risk scores, `/build`, `/scan`, `/task`, connector registry mapping, and Swarm dispatcher routing. Build requests are ArcClaw-scanned before generation, and review/generate/plan/build actions are Trust Fabric-gated with CIS, NIST, SOC 2, ISO 27001, PCI-DSS, and OWASP sensitive-data mappings where applicable. | Add deeper live provider-backed ingestion for Terraform Cloud/checkov/tfsec/Infracost, persisted review/plan/build history, CI runner callbacks, and attach TerraClaw evidence directly to deployment gates |
 | Public maturity transparency | In Progress | This matrix + OWASP split docs | Keep matrix synced with code and tests each release |
 | Production deployment readiness | In Progress | Baseline production deployment guide covering TLS, secrets, database/Redis posture, Trust Fabric fail-closed expectations, CI security, and backup/restore checklist | Cloud-specific deployment examples, HA sizing, disaster recovery runbooks, and upgrade playbooks |
 

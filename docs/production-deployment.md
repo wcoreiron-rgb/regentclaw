@@ -15,6 +15,7 @@ Use this guide when moving RegentClaw from local Docker development into a produ
 | Authentication | Require real JWT/OIDC identity in front of operator routes. Do not rely on local development defaults. |
 | Trust Fabric | Keep policy evaluation fail-closed for execution, remediation, model calls, connector calls, and evidence exports. |
 | CI security | Keep SBOM and dependency audit jobs enabled. Use `security/supply_chain_baseline.json` only for time-boxed accepted legacy findings. |
+| Terraform/IaC gates | Run TerraClaw build/review/plan analysis before Terraform applies. Treat BLOCK decisions as release blockers unless explicitly overridden through governed approval. |
 
 ## Minimum Environment Checklist
 
@@ -27,6 +28,23 @@ Use this guide when moving RegentClaw from local Docker development into a produ
 - CORS allows only approved frontend origins.
 - Reverse proxy enforces TLS, request size limits, and sane timeouts.
 - Backend logs redact request bodies and secrets.
+- Terraform modules generated or reviewed by TerraClaw are checked before apply.
+
+## TerraClaw Terraform/IaC Gates
+
+For Terraform-backed releases, run TerraClaw first:
+
+```http
+POST /api/v1/terraclaw/build
+POST /api/v1/terraclaw/review
+POST /api/v1/terraclaw/plan
+```
+
+Use `build` when an operator wants a secure Terraform module from plain
+English. Use `review` for existing `.tf` content. Use `plan` before apply to
+detect risky creates, deletes, replacements, public network exposure, weak data
+protection, hardcoded secrets, excessive IAM, missing diagnostics, and other
+high-risk IaC changes.
 
 ## Backup And Restore
 
